@@ -180,22 +180,12 @@ export async function searchFoodsWithFallback(
   if (normalize(query).length < 2)
     return { foods: [], total: 0, source: "TBCA", fallback: false }
   const local = searchFoods(catalog, query, limit, "TBCA")
-  if (source !== "IBGE" && local.foods.some(hasCompleteNutrition))
-    return { ...local, source: "TBCA", fallback: false }
-  let api
-  try {
-    api = await remote(query, limit)
-  } catch (error) {
-    if (local.foods.some(hasCompleteNutrition))
-      return { ...local, source: "TBCA", fallback: true }
-    throw error
+  const api = await remote(query, limit).catch(() => ({ foods: [], total: 0 }))
+  const foods = [...local.foods, ...api.foods]
+  return {
+    foods: foods.slice(0, limit),
+    total: foods.length,
+    source: "Todas",
+    fallback: false,
   }
-  if (!api.total && local.total)
-    return { ...local, source: "TBCA", fallback: source === "IBGE" }
-  if (
-    api.foods.some(hasCompleteNutrition) ||
-    !local.foods.some(hasCompleteNutrition)
-  )
-    return { ...api, source: "IBGE", fallback: source !== "IBGE" }
-  return { ...local, source: "TBCA", fallback: true }
 }

@@ -37,7 +37,11 @@ export function createFoodHandler(load = getCatalog) {
             ids.split(",").length > 50 ||
             !ids
               .split(",")
-              .every((id) => /^IBGE:\d{1,10}:(?:na|\d{1,3})$/.test(id))
+              .every((id) =>
+                /^(?:IBGE:\d{1,10}:(?:na|\d{1,3})|OFF:[A-Za-z0-9._-]{1,80})$/.test(
+                  id,
+                ),
+              )
           : query.trim().length < 2 ||
             query.length > 100 ||
             !Number.isInteger(limit) ||
@@ -56,7 +60,7 @@ export function createFoodHandler(load = getCatalog) {
                 .map((id) => catalog.byId.get(id))
                 .filter(Boolean),
             }
-          : searchFoods(catalog, query, limit)
+          : await searchAllSources(catalog, query, limit)
       response.statusCode = 200
       response.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600")
       response.end(JSON.stringify({ ...result, source: "IBGE" }))
@@ -67,6 +71,61 @@ export function createFoodHandler(load = getCatalog) {
         JSON.stringify({ error: "A busca complementar está indisponível." }),
       )
     }
+  }
+}
+
+async function searchOpenFoodFacts(query, limit) {
+  const endpoint = new URL("https://world.openfoodfacts.org/api/v2/search")
+  endpoint.searchParams.set("search_terms", query)
+  endpoint.searchParams.set("page_size", String(Math.min(limit, 40)))
+  endpoint.searchParams.set("fields", "code,product_name,categories,nutriments")
+  const response = await fetch(endpoint, {
+    headers: { "User-Agent": "NinjaCreamiFit/1.0 (nutrition search)" },
+    signal: AbortSignal.timeout(5000),
+  })
+  if (!response.ok) throw new Error(`Open Food Facts ${response.status}`)
+  const data = await response.json()
+  const foods = (Array.isArray(data.products) ? data.products : [])
+    .map((product) => {
+      const nutrition = product.nutriments || {}
+      const food = {
+        id: `OFF:${String(product.code || "")}`,
+        name: String(product.product_name || "").trim(),
+        category: String(product.categories || "Open Food Facts")
+          .split(",")[0]
+          .trim(),
+        source: "Open Food Facts",
+        calories: Number.isFinite(Number(nutrition["energy-kcal_100g"]))
+          ? Number(nutrition["energy-kcal_100g"])
+          : null,
+        protein: Number.isFinite(Number(nutrition.proteins_100g))
+          ? Number(nutrition.proteins_100g)
+          : null,
+        carbs: Number.isFinite(Number(nutrition.carbohydrates_100g))
+          ? Number(nutrition.carbohydrates_100g)
+          : null,
+        fat: Number.isFinite(Number(nutrition.fat_100g))
+          ? Number(nutrition.fat_100g)
+          : null,
+      }
+      return food.name && /^OFF:[A-Za-z0-9._-]{1,80}$/.test(food.id)
+        ? food
+        : null
+    })
+    .filter(Boolean)
+  return { foods, total: foods.length }
+}
+
+async function searchAllSources(catalog, query, limit) {
+  const [local, openFoodFacts] = await Promise.all([
+    Promise.resolve(searchFoods(catalog, query, limit)),
+    searchOpenFoodFacts(query, limit).catch(() => ({ foods: [], total: 0 })),
+  ])
+  const foods = [...local.foods, ...openFoodFacts.foods]
+  return {
+    foods: foods.slice(0, limit),
+    total: foods.length,
+    sources: ["IBGE", "Open Food Facts"],
   }
 }
 export default createFoodHandler()

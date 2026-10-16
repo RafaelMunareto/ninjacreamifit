@@ -43,7 +43,7 @@ export default function FoodCalculator({
   const initial = useRef(initialItems).current
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [items, setItems] = useState<FoodLine[]>([])
-  const [source, setSource] = useState("TBCA")
+  const source = "all"
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)
   const [limit, setLimit] = useState(20)
@@ -215,23 +215,6 @@ export default function FoodCalculator({
       )}
       {catalog && !restoreError && (
         <>
-          <label className="mt-5 block">
-            <span className="mb-2 block text-sm font-extrabold">
-              Prioridade da busca
-            </span>
-            <select
-              aria-label="Prioridade da busca"
-              className="form-input"
-              value={source}
-              onChange={(event) => {
-                setSource(event.target.value)
-                setLimit(20)
-              }}
-            >
-              <option value="TBCA">TBCA primeiro</option>
-              <option value="IBGE">IBGE primeiro</option>
-            </select>
-          </label>
           <label className="mt-5 block">
             <span className="mb-2 block text-sm font-extrabold">
               Buscar alimento

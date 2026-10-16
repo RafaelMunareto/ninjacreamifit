@@ -19,7 +19,7 @@ const food = {
 }
 const local = createFoodCatalog([food])
 
-test("TBCA vem primeiro; a API só é consultada sem alimento completo", async () => {
+test("todas as fontes são consultadas e os resultados são combinados", async () => {
   let calls = 0
   const remote = async () => {
     calls++
@@ -27,14 +27,14 @@ test("TBCA vem primeiro; a API só é consultada sem alimento completo", async (
   }
   assert.equal(
     (await searchFoodsWithFallback(local, "banana", 20, "all", remote)).source,
-    "TBCA",
-  )
-  assert.equal(calls, 0)
-  assert.equal(
-    (await searchFoodsWithFallback(local, "outro", 20, "all", remote)).source,
-    "IBGE",
+    "Todas",
   )
   assert.equal(calls, 1)
+  assert.equal(
+    (await searchFoodsWithFallback(local, "outro", 20, "all", remote)).source,
+    "Todas",
+  )
+  assert.equal(calls, 2)
   assert.equal(
     (
       await searchFoodsWithFallback(
@@ -45,11 +45,11 @@ test("TBCA vem primeiro; a API só é consultada sem alimento completo", async (
         remote,
       )
     ).fallback,
-    true,
+    false,
   )
-  assert.equal(calls, 2)
+  assert.equal(calls, 3)
   await searchFoodsWithFallback(local, "a", 20, "all", remote)
-  assert.equal(calls, 2)
+  assert.equal(calls, 3)
   const noResults = await searchFoodsWithFallback(
     local,
     "inexistente",
@@ -65,15 +65,15 @@ test("TBCA vem primeiro; a API só é consultada sem alimento completo", async (
     "IBGE",
     async () => ({ foods: [], total: 0 }),
   )
-  assert.equal(reverse.source, "TBCA")
-  assert.equal(reverse.fallback, true)
+  assert.equal(reverse.source, "Todas")
+  assert.equal(reverse.fallback, false)
   const unavailable = async () => {
     throw new Error("offline")
   }
   assert.equal(
     (await searchFoodsWithFallback(local, "banana", 20, "IBGE", unavailable))
       .source,
-    "TBCA",
+    "Todas",
   )
   const incomplete = await searchFoodsWithFallback(
     createFoodCatalog([{ ...food, protein: null }]),
@@ -83,12 +83,10 @@ test("TBCA vem primeiro; a API só é consultada sem alimento completo", async (
     async () => ({ foods: [], total: 0 }),
   )
   assert.equal(incomplete.foods[0].protein, null)
-  await assert.rejects(
-    searchFoodsWithFallback(local, "outro", 20, "all", async () => {
-      throw new Error("offline")
-    }),
-    /offline/,
-  )
+  const offline = await searchFoodsWithFallback(local, "outro", 20, "all", async () => {
+    throw new Error("offline")
+  })
+  assert.equal(offline.total, 0)
 })
 
 test("API do projeto busca o IBGE do repositório e restaura códigos salvos", async () => {
