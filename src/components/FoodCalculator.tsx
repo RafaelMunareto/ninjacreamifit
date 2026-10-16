@@ -81,7 +81,6 @@ export default function FoodCalculator({
   const [aiMessage, setAiMessage] = useState("")
   const [aiError, setAiError] = useState("")
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([])
-  const [aiFallbackFood, setAiFallbackFood] = useState("")
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -156,12 +155,6 @@ export default function FoodCalculator({
         )
           .then((data) => {
             if (!active) return
-            if (data.total === 0 && aiFallbackFood.trim()) {
-              setAiFallbackFood("")
-              setQuery(aiFallbackFood)
-              return
-            }
-            setAiFallbackFood("")
             setResults(data)
           })
           .catch(() => {
@@ -181,7 +174,7 @@ export default function FoodCalculator({
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [aiFallbackFood, catalog, deferredQuery, limit, source])
+  }, [catalog, deferredQuery, limit, source])
   const publish = (updated: FoodLine[]) => {
     setItems(updated)
     onChange(
@@ -363,19 +356,12 @@ export default function FoodCalculator({
           )
         })
       }
-      setAiFallbackFood(suggestion.food)
-      setQuery(
-        suggestion.brand
-          ? `${suggestion.brand} ${suggestion.food}`
-          : suggestion.food,
-      )
-      requestAnimationFrame(() => searchInputRef.current?.focus())
       const details = [
         suggestion.brand && `marca ${suggestion.brand}`,
         suggestion.quantity && `${suggestion.quantity} ${suggestion.unit}`,
       ].filter(Boolean)
       setAiMessage(
-        "Alimento identificado e colocado no campo acima: " +
+        "Alimento identificado na sugestão abaixo: " +
           suggestion.food +
           (details.length ? ` · ${details.join(" · ")}` : ""),
       )
@@ -396,6 +382,10 @@ export default function FoodCalculator({
   }
 
   const acceptAiSuggestion = (suggestion: AiSuggestion) => {
+    if (!suggestion.quantity || !Number.isFinite(suggestion.quantity)) {
+      setSearchError("Informe a quantidade antes de adicionar o alimento.")
+      return
+    }
     const food =
       suggestion.matchedFood || results.foods.find(hasCompleteNutrition)
     if (!food) {
@@ -410,7 +400,6 @@ export default function FoodCalculator({
 
   const rejectAiSuggestion = () => {
     setAiSuggestions([])
-    setAiFallbackFood("")
     setAiMessage("Sugestão da IA recusada.")
   }
 
@@ -707,12 +696,18 @@ export default function FoodCalculator({
                     <button
                       type="button"
                       onClick={() => acceptAiSuggestion(aiSuggestion)}
-                      disabled={items.length >= 50 || !aiSuggestion.matchedFood}
-                      className="mt-3 rounded-full bg-[#6950a8] px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={
+                        items.length >= 50 ||
+                        !aiSuggestion.matchedFood ||
+                        !aiSuggestion.quantity
+                      }
+                      className="mt-3 rounded-lg bg-[#6950a8] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {aiSuggestion.matchedFood
-                        ? "Aceitar e adicionar"
-                        : "Buscando dados nutricionais…"}
+                      {!aiSuggestion.quantity
+                        ? "Informe a quantidade"
+                        : aiSuggestion.matchedFood
+                          ? "Aceitar e adicionar"
+                          : "Buscando dados…"}
                     </button>
                   </div>
                 ))}
@@ -720,7 +715,7 @@ export default function FoodCalculator({
               <button
                 type="button"
                 onClick={rejectAiSuggestion}
-                className="mt-3 rounded-full border border-[#cfc0f5] px-4 py-2 text-xs font-bold text-[#6950a8]"
+                className="mt-3 rounded-lg border border-[#cfc0f5] px-3 py-2 text-xs font-bold text-[#6950a8]"
               >
                 Recusar todas
               </button>

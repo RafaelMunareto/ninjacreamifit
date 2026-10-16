@@ -67,7 +67,7 @@ async function analyzeWithGemini(imageData) {
           {
             parts: [
               {
-                text: 'Identifique até três alimentos visíveis na foto. Para cada um, leia a marca e a quantidade/volume quando estiverem visíveis. Responda somente JSON no formato {"foods":[{"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}]}. Use quantity null quando não for possível ler. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
+                text: 'Identifique até três alimentos visíveis na foto. Para cada um, leia a marca e a quantidade/volume da embalagem quando estiverem visíveis. A quantity deve ser o peso ou volume total indicado na embalagem, não o tamanho da porção; transcreva o número exatamente e use null se estiver ilegível. Responda somente JSON no formato {"foods":[{"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}]}. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
               },
               {
                 inline_data: {
@@ -213,7 +213,7 @@ export default async function handler(request, response) {
               {
                 role: "system",
                 content:
-                  'Identifique até três alimentos visíveis na foto. Para cada um, leia a marca e a quantidade/volume quando estiverem visíveis. Responda somente JSON no formato {"foods":[{"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}]}. Use quantity null quando não for possível ler. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
+                  'Identifique até três alimentos visíveis na foto. Para cada um, leia a marca e a quantidade/volume da embalagem quando estiverem visíveis. A quantity deve ser o peso ou volume total indicado na embalagem, não o tamanho da porção; transcreva o número exatamente e use null se estiver ilegível. Responda somente JSON no formato {"foods":[{"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}]}. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
               },
               {
                 role: "user",
