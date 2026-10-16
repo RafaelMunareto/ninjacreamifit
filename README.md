@@ -9,7 +9,8 @@ React + Vite com uma API local escrita em JavaScript. Funciona inteiramente no n
 - Administração local com senha para gerenciar qualquer receita e seus totais de avaliações.
 - Edição de autor, foto, macros, ingredientes, etapas, programa, re-spin, toppings e avaliações.
 - Fotos persistentes, redimensionadas para até 1.200 px antes do armazenamento.
-- Ingredientes e etapas separados, programa da CREAMi, re-spin, toppings, tempo e macros.
+- Ingredientes e etapas separados, programa da CREAMi, re-spin e toppings.
+- Proteína, carboidratos, gorduras e calorias obrigatórios por pote, inclusive na edição; zero deve ser informado explicitamente quando aplicável.
 - Favoritos, uma avaliação por receita e perfil com nome editável.
 - Busca por nome, autor, ingrediente e topping, sem diferenciar acentos.
 - Filtros por categoria, favoritos e receitas próprias; ordenação por nota, proteína e calorias.

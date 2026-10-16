@@ -159,7 +159,10 @@ export async function getSnapshot() {
         const votes = recipe.votes + (ownRating ? 1 : 0)
         return {
           ...recipe,
-          author: recipe.authorId === profile.id && !recipe.authorOverride ? profile.name : recipe.author,
+          author:
+            recipe.authorId === profile.id && !recipe.authorOverride
+              ? profile.name
+              : recipe.author,
           isFavorite: favoriteIds.has(recipe.id),
           ownRating,
           votes,
@@ -225,12 +228,6 @@ function validateRecipe(input, existingImage) {
       throw new Error("Os macros devem ser números entre 0 e 10.000.")
     }
   }
-  if (
-    !Number.isInteger(input.prepMinutes) ||
-    input.prepMinutes < 1 ||
-    input.prepMinutes > 1440
-  )
-    throw new Error("O tempo de preparo deve ser de 1 a 1.440 minutos.")
   const toppings =
     typeof input.toppings === "string" ? input.toppings.trim() : ""
   if (toppings.length > 500)
@@ -239,7 +236,6 @@ function validateRecipe(input, existingImage) {
     title,
     category: input.category,
     image: input.image,
-    prepMinutes: input.prepMinutes,
     program: input.program,
     respin: input.respin,
     toppings,
@@ -273,11 +269,18 @@ export async function saveRecipe(input, id, details) {
   if (id && !existing) throw new Error("Esta receita não está mais disponível.")
   if (existing && existing.authorId !== profile.id) requireAdmin(credential)
   const values = validateRecipe(input, existing?.image)
-  const localName = !details && input.authorName !== undefined ? text(input.authorName, "seu nome", 60) : profile.name
+  const localName =
+    !details && input.authorName !== undefined
+      ? text(input.authorName, "seu nome", 60)
+      : profile.name
   let author = existing?.author || profile.name
   const authorId = existing ? existing.authorId : profile.id
   let authorOverride = existing?.authorOverride || false
-  if (!details && (!existing || existing.authorId === profile.id) && input.authorName !== undefined) {
+  if (
+    !details &&
+    (!existing || existing.authorId === profile.id) &&
+    input.authorName !== undefined
+  ) {
     author = localName
     authorOverride = false
   }
@@ -286,7 +289,9 @@ export async function saveRecipe(input, id, details) {
   if (details) {
     author = text(details.author, "o nome do autor", 60)
     const displayedAuthor =
-      existing?.authorId === profile.id && !existing.authorOverride ? profile.name : existing?.author
+      existing?.authorId === profile.id && !existing.authorOverride
+        ? profile.name
+        : existing?.author
     if (author !== displayedAuthor) authorOverride = true
     if (
       !Number.isInteger(details.votes) ||
@@ -327,7 +332,8 @@ export async function saveRecipe(input, id, details) {
     }
   }
   const recipeId = id || crypto.randomUUID()
-  if (!details && localName !== profile.name) transaction.objectStore("settings").put({ ...profile, name: localName })
+  if (!details && localName !== profile.name)
+    transaction.objectStore("settings").put({ ...profile, name: localName })
   store.put({
     ...values,
     id: recipeId,

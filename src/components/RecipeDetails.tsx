@@ -84,9 +84,6 @@ export default function RecipeDetails({
             </p>
           </div>
           <div className="shrink-0 space-y-2">
-            <div className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold">
-              <Icon name="clock" size={18} /> Preparo: {recipe.prepMinutes} min
-            </div>
             <div className="flex items-center gap-2 rounded-full bg-[#342820] px-4 py-2 text-sm font-bold text-white">
               <Icon name="bowl" size={18} /> {programs[recipe.program]}
               {recipe.respin ? " + Re-spin" : ""}
@@ -210,7 +207,29 @@ export default function RecipeDetails({
             {error}
           </p>
         )}
-        {onEdit && onDelete && <div className="mt-6 border-t border-[#e7d9ce] pt-5"><p className="mb-3 text-xs font-bold text-[#8a776b]">Esta receita é sua. Você pode atualizar ou excluir quando quiser.</p><div className="flex flex-wrap gap-3"><button disabled={pending} onClick={onEdit} className="rounded-full bg-[#342820] px-5 py-3 text-sm font-bold text-white">Editar minha receita</button><button disabled={pending} onClick={onDelete} className="rounded-full border border-[#e7d9ce] px-5 py-3 text-sm font-bold text-[#d63f68]">Excluir minha receita</button></div></div>}
+        {onEdit && onDelete && (
+          <div className="mt-6 border-t border-[#e7d9ce] pt-5">
+            <p className="mb-3 text-xs font-bold text-[#8a776b]">
+              Esta receita é sua. Você pode atualizar ou excluir quando quiser.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                disabled={pending}
+                onClick={onEdit}
+                className="rounded-full bg-[#342820] px-5 py-3 text-sm font-bold text-white"
+              >
+                Editar minha receita
+              </button>
+              <button
+                disabled={pending}
+                onClick={onDelete}
+                className="rounded-full border border-[#e7d9ce] px-5 py-3 text-sm font-bold text-[#d63f68]"
+              >
+                Excluir minha receita
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </Modal>
   )

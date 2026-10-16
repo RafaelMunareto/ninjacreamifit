@@ -503,7 +503,12 @@ function PasswordField({
   )
 }
 
-function Summary({ value, label }: { value: number label: string }) {
+type SummaryProps = {
+  value: number
+  label: string
+}
+
+function Summary({ value, label }: SummaryProps) {
   return (
     <div className="rounded-3xl border border-[#eadfd5] bg-white p-5">
       <strong className="font-display text-3xl font-black">

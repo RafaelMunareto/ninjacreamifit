@@ -233,26 +233,45 @@ test("administração local exige senha e gerencia todo o catálogo", async (t) 
     },
   )
 
-  await t.test("o administrador altera uma receita do autor sem remover seu vínculo de edição", async () => {
-    const input = { ...recipe, title: "Receita do perfil local", image: "data:image/jpeg;base64,aGVsbG8=", authorName: "Autor local" }
-    const id = await api.saveRecipe(input)
-    let snapshot = await api.getSnapshot()
-    const ownerId = snapshot.profile.id
-    const own = snapshot.recipes.find((item) => item.id === id)
-    await api.loginAdmin(replacement)
-    await api.saveRecipe(own, id, { author: "Nome revisado pelo admin", rating: 4.5, votes: 80 })
-    api.logoutAdmin()
-    snapshot = await api.getSnapshot()
-    const moderated = snapshot.recipes.find((item) => item.id === id)
-    assert.equal(moderated.author, "Nome revisado pelo admin")
-    assert.equal(moderated.authorId, ownerId)
-    await api.saveRecipe({ ...moderated, title: "Autor ainda pode editar" }, id)
-    const edited = (await api.getSnapshot()).recipes.find((item) => item.id === id)
-    assert.equal(edited.title, "Autor ainda pode editar")
-    assert.equal(edited.votes, 80)
-    assert.equal(edited.rating, 4.5)
-    assert.equal(edited.authorId, ownerId)
-    await api.deleteRecipe(id)
-    assert.ok(!(await api.getSnapshot()).recipes.some((item) => item.id === id))
-  })
+  await t.test(
+    "o administrador altera uma receita do autor sem remover seu vínculo de edição",
+    async () => {
+      const input = {
+        ...recipe,
+        title: "Receita do perfil local",
+        image: "data:image/jpeg;base64,aGVsbG8=",
+        authorName: "Autor local",
+      }
+      const id = await api.saveRecipe(input)
+      let snapshot = await api.getSnapshot()
+      const ownerId = snapshot.profile.id
+      const own = snapshot.recipes.find((item) => item.id === id)
+      await api.loginAdmin(replacement)
+      await api.saveRecipe(own, id, {
+        author: "Nome revisado pelo admin",
+        rating: 4.5,
+        votes: 80,
+      })
+      api.logoutAdmin()
+      snapshot = await api.getSnapshot()
+      const moderated = snapshot.recipes.find((item) => item.id === id)
+      assert.equal(moderated.author, "Nome revisado pelo admin")
+      assert.equal(moderated.authorId, ownerId)
+      await api.saveRecipe(
+        { ...moderated, title: "Autor ainda pode editar" },
+        id,
+      )
+      const edited = (await api.getSnapshot()).recipes.find(
+        (item) => item.id === id,
+      )
+      assert.equal(edited.title, "Autor ainda pode editar")
+      assert.equal(edited.votes, 80)
+      assert.equal(edited.rating, 4.5)
+      assert.equal(edited.authorId, ownerId)
+      await api.deleteRecipe(id)
+      assert.ok(
+        !(await api.getSnapshot()).recipes.some((item) => item.id === id),
+      )
+    },
+  )
 })

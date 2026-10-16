@@ -6,7 +6,6 @@ export interface RecipeInput {
   title: string
   category: Category
   image: string
-  prepMinutes: number
   program: Program
   respin: boolean
   toppings: string

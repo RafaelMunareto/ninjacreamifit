@@ -67,6 +67,10 @@ export default function RecipeForm({
     }
     const form = new FormData(event.currentTarget)
     const string = (key: string) => String(form.get(key) || "")
+    const requiredNumber = (key: string) => {
+      const value = string(key).trim()
+      return value === "" ? Number.NaN : Number(value)
+    }
     const lines = (key: string) =>
       string(key)
         .split(/\r?\n/)
@@ -82,15 +86,14 @@ export default function RecipeForm({
           category: string("category") as Category,
           image: photo,
           program: string("program") as Program,
-          prepMinutes: Number(string("prep_minutes")),
           respin: string("respin") === "sim",
           toppings: hasToppings ? string("toppings") : "",
           ingredients: lines("ingredients"),
           instructions: lines("instructions"),
-          protein: Number(string("protein_g")),
-          carbs: Number(string("carbs_g")),
-          fat: Number(string("fat_g")),
-          calories: Number(string("calories")),
+          protein: requiredNumber("protein_g"),
+          carbs: requiredNumber("carbs_g"),
+          fat: requiredNumber("fat_g"),
+          calories: requiredNumber("calories"),
           ...(adminMode ? {} : { authorName: string("author_name") }),
         },
         recipe?.id,
@@ -142,15 +145,29 @@ export default function RecipeForm({
           </button>
         </div>
         <p className="mt-3 text-sm text-[#78665b]">
-          {adminMode ? (
-            "Altere os dados da receita e salve para atualizar o catálogo deste navegador."
-          ) : (
-            recipe ? "Atualize sua receita. As avaliações serão preservadas." : "Escolha seu nome e envie a receita. Depois, você poderá editar ou excluir em Minhas receitas."
-          )}
+          {adminMode
+            ? "Altere os dados da receita e salve para atualizar o catálogo deste navegador."
+            : recipe
+              ? "Atualize sua receita. As avaliações serão preservadas."
+              : "Escolha seu nome e envie a receita. Depois, você poderá editar ou excluir em Minhas receitas."}
         </p>
         <form onSubmit={submit} className="mt-7 space-y-5" aria-busy={busy}>
           <fieldset disabled={busy} className="space-y-5">
-            {!adminMode && <div><Field label="Seu nome" name="author_name" placeholder="Como você quer aparecer nas receitas?" defaultValue={author === "Você" ? "" : author} maxLength={60} /><p className="mt-2 text-xs text-[#8a776b]">Vamos lembrar seu nome neste navegador para as próximas receitas.</p></div>}
+            {!adminMode && (
+              <div>
+                <Field
+                  label="Seu nome"
+                  name="author_name"
+                  placeholder="Como você quer aparecer nas receitas?"
+                  defaultValue={author === "Você" ? "" : author}
+                  maxLength={60}
+                />
+                <p className="mt-2 text-xs text-[#8a776b]">
+                  Vamos lembrar seu nome neste navegador para as próximas
+                  receitas.
+                </p>
+              </div>
+            )}
             <div>
               <span className="mb-2 block text-sm font-extrabold">
                 Foto da receita
@@ -273,16 +290,6 @@ export default function RecipeForm({
                 maxLength={500}
               />
             )}
-            <Field
-              label="Tempo de preparo (minutos, sem congelamento)"
-              name="prep_minutes"
-              type="number"
-              placeholder="5"
-              defaultValue={recipe?.prepMinutes ?? 5}
-              min={1}
-              max={1440}
-              step={1}
-            />
             <label className="block">
               <span className="mb-2 block text-sm font-extrabold">
                 Ingredientes · um por linha
@@ -316,7 +323,13 @@ export default function RecipeForm({
               />
             </label>
             <div>
-              <p className="mb-3 text-sm font-extrabold">Macros por pote</p>
+              <p className="text-sm font-extrabold">
+                Macros e calorias por pote · obrigatório
+              </p>
+              <p className="mb-3 mt-1 text-xs text-[#8a776b]">
+                Preencha os quatro campos. Informe 0 quando o nutriente não
+                estiver presente.
+              </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <Field
                   label="Proteína (g)"
