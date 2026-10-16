@@ -25,14 +25,35 @@ const UNKNOWN_FOOD_NAMES = new Set([
 ])
 
 async function analyzeWithGemini(imageData) {
-  const models = [
+  const preferred = [
     process.env.GEMINI_MODEL,
+    "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
-  ].filter((model, index, all) => model && all.indexOf(model) === index)
+  ].filter(Boolean)
+  let discovered = []
+  try {
+    const listing = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`,
+    )
+    if (listing.ok) {
+      const data = await listing.json()
+      discovered = (data.models || [])
+        .filter((item) =>
+          item.supportedGenerationMethods?.includes("generateContent"),
+        )
+        .map((item) => String(item.name || "").replace(/^models\//, ""))
+        .filter((model) => /flash/i.test(model))
+    }
+  } catch {
+    // The static list below remains available if model discovery is unavailable.
+  }
+  const models = [...preferred, ...discovered].filter(
+    (model, index, all) => model && all.indexOf(model) === index,
+  )
   let lastError
+  const failures = []
   for (const model of models) {
     const endpoint = new URL(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -68,9 +89,10 @@ async function analyzeWithGemini(imageData) {
       return parseModelJson(content)
     }
     lastError = new Error(data.error?.message || `Gemini ${model} error`)
+    failures.push(`${model}: ${lastError.message}`)
     if (![404, 429, 500, 503].includes(upstream.status)) throw lastError
   }
-  throw lastError || new Error("Gemini error")
+  throw new Error(failures.join(" | ") || lastError?.message || "Gemini error")
 }
 
 export default async function handler(request, response) {
