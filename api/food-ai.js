@@ -191,10 +191,10 @@ export default async function handler(request, response) {
       return
     }
     let parsed
-    if (process.env.HF_TOKEN) {
-      parsed = await analyzeWithHuggingFace(imageData)
-    } else if (process.env.GEMINI_API_KEY) {
+    if (process.env.GEMINI_API_KEY) {
       parsed = await analyzeWithGemini(imageData)
+    } else if (process.env.HF_TOKEN) {
+      parsed = await analyzeWithHuggingFace(imageData)
     } else {
       const upstream = await fetch(
         "https://api.openai.com/v1/chat/completions",
