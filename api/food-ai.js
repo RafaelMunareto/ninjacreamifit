@@ -1,5 +1,47 @@
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024
 
+function parseDataUrl(image) {
+  const match =
+    /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(image)
+  return match ? { mimeType: match[1], data: match[2] } : null
+}
+
+async function analyzeWithGemini(imageData) {
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite"
+  const endpoint = new URL(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+  )
+  endpoint.searchParams.set("key", process.env.GEMINI_API_KEY)
+  const upstream = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            {
+              text: 'Identifique o alimento principal na foto. Responda somente JSON no formato {"food":"nome curto","confidence":0.0}. Não invente marca ou nutrientes. Use português do Brasil.',
+            },
+            {
+              inline_data: {
+                mime_type: imageData.mimeType,
+                data: imageData.data,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: { responseMimeType: "application/json" },
+    }),
+  })
+  const data = await upstream.json()
+  if (!upstream.ok) throw new Error(data.error?.message || "Gemini error")
+  const content = data.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text || "")
+    .join("")
+  return JSON.parse(content || "{}")
+}
+
 export default async function handler(request, response) {
   response.setHeader("Content-Type", "application/json; charset=utf-8")
   response.setHeader("X-Content-Type-Options", "nosniff")
@@ -9,7 +51,7 @@ export default async function handler(request, response) {
     response.end(JSON.stringify({ error: "Método não permitido." }))
     return
   }
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY) {
     response.statusCode = 503
     response.end(
       JSON.stringify({
@@ -35,46 +77,52 @@ export default async function handler(request, response) {
       )
       return
     }
-    const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + process.env.OPENAI_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              'Identifique o alimento principal na foto. Responda somente JSON no formato {"food":"nome curto","confidence":0.0}. Não invente marca ou nutrientes.',
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Qual alimento aparece nesta foto? Use o nome comum em português do Brasil.",
-              },
-              { type: "image_url", image_url: { url: image } },
-            ],
-          },
-        ],
-      }),
-    })
-    const data = await upstream.json()
-    if (!upstream.ok) {
-      response.statusCode = 502
-      response.end(
-        JSON.stringify({
-          error: "O serviço de IA não conseguiu analisar a foto.",
-        }),
-      )
+    const imageData = parseDataUrl(image)
+    if (!imageData) {
+      response.statusCode = 400
+      response.end(JSON.stringify({ error: "Imagem inválida." }))
       return
     }
-    const content = data.choices?.[0]?.message?.content
-    const parsed = JSON.parse(content || "{}")
+    let parsed
+    if (process.env.GEMINI_API_KEY) {
+      parsed = await analyzeWithGemini(imageData)
+    } else {
+      const upstream = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + process.env.OPENAI_API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [
+              {
+                role: "system",
+                content:
+                  'Identifique o alimento principal na foto. Responda somente JSON no formato {"food":"nome curto","confidence":0.0}. Não invente marca ou nutrientes.',
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Qual alimento aparece nesta foto? Use o nome comum em português do Brasil.",
+                  },
+                  { type: "image_url", image_url: { url: image } },
+                ],
+              },
+            ],
+          }),
+        },
+      )
+      const data = await upstream.json()
+      if (!upstream.ok) throw new Error("OpenAI error")
+      const content = data.choices?.[0]?.message?.content
+      parsed = JSON.parse(content || "{}")
+    }
     if (
       typeof parsed.food !== "string" ||
       parsed.food.trim().length < 2 ||
