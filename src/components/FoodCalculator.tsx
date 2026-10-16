@@ -34,6 +34,7 @@ type AiSuggestion = {
   brand: string
   quantity?: number
   unit?: "g" | "ml"
+  matchedFood?: LocalFood
 }
 type Catalog = Awaited<ReturnType<typeof loadFoodCatalog>>
 type Props = {
@@ -77,7 +78,8 @@ export default function FoodCalculator({
   const [scanning, setScanning] = useState(false)
   const [identifyingPhoto, setIdentifyingPhoto] = useState(false)
   const [aiMessage, setAiMessage] = useState("")
-  const [aiSuggestion, setAiSuggestion] = useState<AiSuggestion | null>(null)
+  const [aiError, setAiError] = useState("")
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([])
   const [aiFallbackFood, setAiFallbackFood] = useState("")
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
@@ -187,15 +189,18 @@ export default function FoodCalculator({
       updated.length ? calculateNutrition(updated) : null,
     )
   }
-  const add = (food: LocalFood) => {
+  const add = (food: LocalFood, suggestion?: AiSuggestion) => {
     if (items.length >= 50 || !hasCompleteNutrition(food)) return
-    const quantity = aiSuggestion?.quantity ?? 100
-    const unit = aiSuggestion?.unit ?? "g"
+    const quantity = suggestion?.quantity ?? 100
+    const unit = suggestion?.unit ?? "g"
     publish([
       ...items,
       { key: crypto.randomUUID(), food, grams: String(quantity), unit },
     ])
-    setAiSuggestion(null)
+    if (suggestion)
+      setAiSuggestions((current) =>
+        current.filter((item) => item.food !== suggestion.food),
+      )
     setQuery("")
     setLimit(20)
   }
@@ -275,6 +280,7 @@ export default function FoodCalculator({
     }
     setIdentifyingPhoto(true)
     setAiMessage("")
+    setAiError("")
     setSearchError("")
     try {
       const image = await new Promise<string>((resolve, reject) => {
@@ -293,17 +299,60 @@ export default function FoodCalculator({
         throw new Error(
           result.error || "Não foi possível identificar o alimento.",
         )
-      if (typeof result.food !== "string" || result.food.trim().length < 2)
-        throw new Error("A IA não conseguiu reconhecer o alimento na foto.")
       const quantity = Number(result.quantity)
-      const suggestion = {
-        food: result.food.trim(),
-        brand: typeof result.brand === "string" ? result.brand.trim() : "",
-        ...(Number.isFinite(quantity) && quantity > 0 && quantity <= 10000
-          ? { quantity, unit: result.unit === "ml" ? "ml" : "g" }
-          : {}),
-      } satisfies AiSuggestion
-      setAiSuggestion(suggestion)
+      const rawSuggestions = (
+        Array.isArray(result.foods) ? result.foods : [result]
+      ) as Array<{
+        food?: unknown
+        brand?: unknown
+        quantity?: unknown
+        unit?: unknown
+      }>
+      const suggestions = rawSuggestions
+        .map((item) => {
+          const itemQuantity = Number(item.quantity)
+          return {
+            food: typeof item.food === "string" ? item.food.trim() : "",
+            brand: typeof item.brand === "string" ? item.brand.trim() : "",
+            ...(Number.isFinite(itemQuantity) && itemQuantity > 0
+              ? {
+                  quantity: itemQuantity,
+                  unit: (item.unit === "ml" ? "ml" : "g") as "g" | "ml",
+                }
+              : {}),
+          }
+        })
+        .filter((item) => item.food.length >= 2)
+        .slice(0, 3) satisfies AiSuggestion[]
+      if (!suggestions.length)
+        throw new Error("A IA não conseguiu reconhecer os alimentos na foto.")
+      const suggestion = suggestions[0]
+      setAiSuggestions(suggestions)
+      if (catalog) {
+        void Promise.all(
+          suggestions.map(async (item) => {
+            try {
+              const found = await searchFoodsWithFallback(
+                catalog,
+                `${item.brand} ${item.food}`.trim(),
+                5,
+                source,
+                (term, count) => searchFoodApi(term, count),
+              )
+              return found.foods.find(hasCompleteNutrition)
+            } catch {
+              return undefined
+            }
+          }),
+        ).then((matches) => {
+          setAiSuggestions((current) =>
+            current.map((item, index) => ({
+              ...item,
+              matchedFood: matches[index],
+            })),
+          )
+        })
+      }
       setAiFallbackFood(suggestion.food)
       setQuery(
         suggestion.brand
@@ -321,6 +370,11 @@ export default function FoodCalculator({
           (details.length ? ` · ${details.join(" · ")}` : ""),
       )
     } catch (cause) {
+      setAiError(
+        cause instanceof Error
+          ? cause.message
+          : "Não foi possível analisar a foto agora.",
+      )
       setSearchError(
         cause instanceof Error
           ? cause.message
@@ -331,20 +385,21 @@ export default function FoodCalculator({
     }
   }
 
-  const acceptAiSuggestion = () => {
-    const food = results.foods.find(hasCompleteNutrition)
+  const acceptAiSuggestion = (suggestion: AiSuggestion) => {
+    const food =
+      suggestion.matchedFood || results.foods.find(hasCompleteNutrition)
     if (!food) {
       setSearchError(
         "A IA identificou o alimento, mas não encontrei dados nutricionais para ele. Escolha um resultado da busca para adicionar.",
       )
       return
     }
-    add(food)
-    setAiMessage("Alimento identificado e adicionado à receita.")
+    add(food, suggestion)
+    setAiMessage(`${suggestion.food} adicionado à receita.`)
   }
 
   const rejectAiSuggestion = () => {
-    setAiSuggestion(null)
+    setAiSuggestions([])
     setAiFallbackFood("")
     setAiMessage("Sugestão da IA recusada.")
   }
@@ -517,6 +572,18 @@ export default function FoodCalculator({
               {aiMessage}
             </p>
           )}
+          {aiError && (
+            <div
+              role="alert"
+              className="mt-3 rounded-2xl border border-[#f2b8c8] bg-[#fff2f5] p-3 text-sm text-[#9b2448]"
+            >
+              <strong className="block">A identificação por IA falhou</strong>
+              <span className="mt-1 block">{aiError}</span>
+              <span className="mt-1 block text-xs">
+                Tente outra foto com boa luz e a embalagem inteira visível.
+              </span>
+            </div>
+          )}
           {!!results.foods.length && (
             <ul
               aria-label="Resultados de alimentos"
@@ -554,79 +621,99 @@ export default function FoodCalculator({
               })}
             </ul>
           )}
-          {aiSuggestion && (
+          {!!aiSuggestions.length && (
             <div className="mt-4 rounded-2xl border border-[#cfc0f5] bg-[#faf7ff] p-4">
               <p className="text-xs font-extrabold uppercase tracking-wide text-[#6950a8]">
-                Sugestão da IA — confirme antes de adicionar
+                Sugestões da IA — confirme antes de adicionar
               </p>
-              <p className="mt-2 text-sm font-black">{aiSuggestion.food}</p>
-              <p className="mt-1 text-xs text-[#78665b]">
-                {aiSuggestion.brand
-                  ? `Marca: ${aiSuggestion.brand}`
-                  : "Marca não identificada"}
-                {aiSuggestion.quantity
-                  ? ` · ${aiSuggestion.quantity} ${aiSuggestion.unit}`
-                  : " · Quantidade não identificada"}
-              </p>
-              <div className="mt-3 grid max-w-xs grid-cols-[minmax(0,1fr)_auto] gap-2">
-                <label>
-                  <span className="mb-1 block text-xs font-bold">
-                    Quantidade
-                  </span>
-                  <input
-                    type="number"
-                    min={0.01}
-                    max={10000}
-                    step="any"
-                    value={aiSuggestion.quantity ?? ""}
-                    onChange={(event) =>
-                      setAiSuggestion({
-                        ...aiSuggestion,
-                        quantity: event.target.value
-                          ? Number(event.target.value)
-                          : undefined,
-                      })
-                    }
-                    className="form-input bg-white"
-                  />
-                </label>
-                <label>
-                  <span className="mb-1 block text-xs font-bold">Unidade</span>
-                  <select
-                    value={aiSuggestion.unit ?? "g"}
-                    onChange={(event) =>
-                      setAiSuggestion({
-                        ...aiSuggestion,
-                        unit: event.target.value === "ml" ? "ml" : "g",
-                      })
-                    }
-                    className="form-input bg-white"
+              <div className="mt-3 space-y-3">
+                {aiSuggestions.map((aiSuggestion) => (
+                  <div
+                    key={aiSuggestion.food}
+                    className="rounded-xl bg-white p-3"
                   >
-                    <option value="g">g</option>
-                    <option value="ml">ml</option>
-                  </select>
-                </label>
+                    <p className="text-sm font-black">{aiSuggestion.food}</p>
+                    <p className="mt-1 text-xs text-[#78665b]">
+                      {aiSuggestion.brand
+                        ? `Marca: ${aiSuggestion.brand}`
+                        : "Marca não identificada"}
+                    </p>
+                    <div className="mt-3 grid max-w-xs grid-cols-[minmax(0,1fr)_auto] gap-2">
+                      <label>
+                        <span className="mb-1 block text-xs font-bold">
+                          Quantidade
+                        </span>
+                        <input
+                          type="number"
+                          min={0.01}
+                          max={10000}
+                          step="any"
+                          value={aiSuggestion.quantity ?? ""}
+                          onChange={(event) =>
+                            setAiSuggestions((current) =>
+                              current.map((item) =>
+                                item.food === aiSuggestion.food
+                                  ? {
+                                      ...item,
+                                      quantity: event.target.value
+                                        ? Number(event.target.value)
+                                        : undefined,
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                          className="form-input bg-white"
+                        />
+                      </label>
+                      <label>
+                        <span className="mb-1 block text-xs font-bold">
+                          Unidade
+                        </span>
+                        <select
+                          value={aiSuggestion.unit ?? "g"}
+                          onChange={(event) =>
+                            setAiSuggestions((current) =>
+                              current.map((item) =>
+                                item.food === aiSuggestion.food
+                                  ? {
+                                      ...item,
+                                      unit:
+                                        event.target.value === "ml"
+                                          ? "ml"
+                                          : "g",
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                          className="form-input bg-white"
+                        >
+                          <option value="g">g</option>
+                          <option value="ml">ml</option>
+                        </select>
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => acceptAiSuggestion(aiSuggestion)}
+                      disabled={items.length >= 50 || !aiSuggestion.matchedFood}
+                      className="mt-3 rounded-full bg-[#6950a8] px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {aiSuggestion.matchedFood
+                        ? "Aceitar e adicionar"
+                        : "Buscando dados nutricionais…"}
+                    </button>
+                  </div>
+                ))}
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={acceptAiSuggestion}
-                  disabled={
-                    items.length >= 50 ||
-                    !results.foods.some(hasCompleteNutrition)
-                  }
-                  className="rounded-full bg-[#6950a8] px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Aceitar e adicionar
-                </button>
-                <button
-                  type="button"
-                  onClick={rejectAiSuggestion}
-                  className="rounded-full border border-[#cfc0f5] px-4 py-2 text-xs font-bold text-[#6950a8]"
-                >
-                  Recusar
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={rejectAiSuggestion}
+                className="mt-3 rounded-full border border-[#cfc0f5] px-4 py-2 text-xs font-bold text-[#6950a8]"
+              >
+                Recusar todas
+              </button>
             </div>
           )}
           {results.total > limit && (

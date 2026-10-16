@@ -45,7 +45,7 @@ async function analyzeWithGemini(imageData) {
           {
             parts: [
               {
-                text: 'Identifique o alimento principal na foto e, se estiver visível, a marca e a quantidade/volume indicados na embalagem. Responda somente JSON no formato {"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}. Use quantity null quando não for possível ler a quantidade. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
+                text: 'Identifique até três alimentos visíveis na foto. Para cada um, leia a marca e a quantidade/volume quando estiverem visíveis. Responda somente JSON no formato {"foods":[{"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}]}. Use quantity null quando não for possível ler. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
               },
               {
                 inline_data: {
@@ -132,7 +132,7 @@ export default async function handler(request, response) {
               {
                 role: "system",
                 content:
-                  'Identifique o alimento principal na foto e, se estiver visível, a marca e a quantidade/volume indicados na embalagem. Responda somente JSON no formato {"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}. Use quantity null quando não for possível ler a quantidade. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
+                  'Identifique até três alimentos visíveis na foto. Para cada um, leia a marca e a quantidade/volume quando estiverem visíveis. Responda somente JSON no formato {"foods":[{"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}]}. Use quantity null quando não for possível ler. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
               },
               {
                 role: "user",
@@ -153,15 +153,44 @@ export default async function handler(request, response) {
       const content = data.choices?.[0]?.message?.content
       parsed = parseModelJson(content)
     }
-    const food = typeof parsed.food === "string" ? parsed.food.trim() : ""
-    const confidence = Number(parsed.confidence)
-    const unknownName = UNKNOWN_FOOD_NAMES.has(food.toLocaleLowerCase("pt-BR"))
-    if (
-      food.length < 2 ||
-      food.length > 100 ||
-      unknownName ||
-      (Number.isFinite(confidence) && confidence < 0.45)
-    ) {
+    const candidates = Array.isArray(parsed.foods)
+      ? parsed.foods
+      : parsed.food
+        ? [parsed]
+        : []
+    const foods = candidates
+      .map((candidate) => {
+        const food =
+          typeof candidate?.food === "string" ? candidate.food.trim() : ""
+        const confidence = Number(candidate?.confidence)
+        const unknownName = UNKNOWN_FOOD_NAMES.has(
+          food.toLocaleLowerCase("pt-BR"),
+        )
+        if (
+          food.length < 2 ||
+          food.length > 100 ||
+          unknownName ||
+          (Number.isFinite(confidence) && confidence < 0.45)
+        )
+          return null
+        const brand =
+          typeof candidate.brand === "string" &&
+          candidate.brand.trim().length <= 100
+            ? candidate.brand.trim()
+            : ""
+        const quantity = Number(candidate.quantity)
+        const unit = candidate.unit === "ml" ? "ml" : "g"
+        return {
+          food,
+          brand,
+          ...(Number.isFinite(quantity) && quantity > 0 && quantity <= 10000
+            ? { quantity, unit }
+            : {}),
+        }
+      })
+      .filter(Boolean)
+      .slice(0, 3)
+    if (!foods.length) {
       response.statusCode = 422
       response.end(
         JSON.stringify({ error: "A IA não conseguiu reconhecer o alimento." }),
@@ -170,21 +199,7 @@ export default async function handler(request, response) {
     }
     response.statusCode = 200
     response.setHeader("Cache-Control", "no-store")
-    const brand =
-      typeof parsed.brand === "string" && parsed.brand.trim().length <= 100
-        ? parsed.brand.trim()
-        : ""
-    const quantity = Number(parsed.quantity)
-    const unit = parsed.unit === "ml" ? "ml" : "g"
-    response.end(
-      JSON.stringify({
-        food,
-        brand,
-        ...(Number.isFinite(quantity) && quantity > 0 && quantity <= 10000
-          ? { quantity, unit }
-          : {}),
-      }),
-    )
+    response.end(JSON.stringify({ foods, ...foods[0] }))
   } catch (error) {
     console.error(
       "food-ai provider error",
