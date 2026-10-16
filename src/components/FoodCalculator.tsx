@@ -279,14 +279,14 @@ export default function FoodCalculator({
               onClick={() => void scanBarcode()}
               className="rounded-full bg-[#ef4f78] px-4 py-2.5 text-xs font-bold text-white"
             >
-              {scanning ? "Lendo código…" : "Ler código de barras"}
+              {scanning ? "Lendo código…" : "Cod de barras"}
             </button>
             <button
               type="button"
               disabled
               className="rounded-full border border-[#e5d8cc] bg-white px-4 py-2.5 text-xs font-bold text-[#8a776b]"
             >
-              Identificar por foto (IA) · em breve
+              Foto (IA)
             </button>
           </div>
           <div
