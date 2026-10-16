@@ -16,7 +16,7 @@ function parseModelJson(content) {
 }
 
 async function analyzeWithGemini(imageData) {
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite"
+  const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite"
   const endpoint = new URL(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
   )
