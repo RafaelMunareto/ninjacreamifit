@@ -2,6 +2,7 @@ export type Program = "sorbet" | "sorvete" | "sorvete_light" | "gelato"
 export type Category = "Frutados" | "Chocolate" | "Cremosos" | "Veganos" | "Baixa caloria"
 
 export interface RecipeInput {
+  authorName?: string
   title: string
   category: Category
   image: string
@@ -21,6 +22,7 @@ export interface StoredRecipe extends RecipeInput {
   id: string
   author: string
   authorId: string | null
+  authorOverride?: boolean
   color: string
   rating: number
   votes: number
@@ -37,7 +39,19 @@ export interface Profile {
   name: string
 }
 
+export interface AdminDetails {
+  author: string
+  rating: number
+  votes: number
+}
+
+export interface AdminStatus {
+  configured: boolean
+  authenticated: boolean
+}
+
 export interface Snapshot {
   recipes: Recipe[]
   profile: Profile
+  admin: AdminStatus
 }

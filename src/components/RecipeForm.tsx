@@ -1,5 +1,11 @@
 import { useRef, useState, type FormEvent, type ChangeEvent } from "react"
-import type { Category, Program, Recipe, RecipeInput } from "../types"
+import type {
+  AdminDetails,
+  Category,
+  Program,
+  Recipe,
+  RecipeInput,
+} from "../types"
 import { categories, programs } from "../data/recipes.js"
 import { errorMessage } from "../lib/local-api.js"
 import { preparePhoto } from "../lib/photo.js"
@@ -11,11 +17,17 @@ export default function RecipeForm({
   author,
   onClose,
   onSave,
+  adminMode = false,
 }: {
   recipe?: Recipe
   author: string
   onClose: () => void
-  onSave: (input: RecipeInput, id?: string) => Promise<void>
+  onSave: (
+    input: RecipeInput,
+    id?: string,
+    details?: AdminDetails,
+  ) => Promise<void>
+  adminMode?: boolean
 }) {
   const [hasToppings, setHasToppings] = useState(Boolean(recipe?.toppings))
   const [photo, setPhoto] = useState(recipe?.image || "")
@@ -79,8 +91,16 @@ export default function RecipeForm({
           carbs: Number(string("carbs_g")),
           fat: Number(string("fat_g")),
           calories: Number(string("calories")),
+          ...(adminMode ? {} : { authorName: string("author_name") }),
         },
         recipe?.id,
+        adminMode
+          ? {
+              author: string("author"),
+              rating: Number(string("rating")),
+              votes: Number(string("votes")),
+            }
+          : undefined,
       )
     } catch (cause) {
       setError(errorMessage(cause))
@@ -101,7 +121,9 @@ export default function RecipeForm({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ef4f78]">
-              compartilhe seu sabor
+              {adminMode
+                ? "administração do catálogo"
+                : "compartilhe seu sabor"}
             </p>
             <h2
               id="recipe-form-title"
@@ -120,11 +142,15 @@ export default function RecipeForm({
           </button>
         </div>
         <p className="mt-3 text-sm text-[#78665b]">
-          Receita de <strong>{author}</strong>. Salva neste navegador, com foto
-          e todos os detalhes.
+          {adminMode ? (
+            "Altere os dados da receita e salve para atualizar o catálogo deste navegador."
+          ) : (
+            recipe ? "Atualize sua receita. As avaliações serão preservadas." : "Escolha seu nome e envie a receita. Depois, você poderá editar ou excluir em Minhas receitas."
+          )}
         </p>
         <form onSubmit={submit} className="mt-7 space-y-5" aria-busy={busy}>
           <fieldset disabled={busy} className="space-y-5">
+            {!adminMode && <div><Field label="Seu nome" name="author_name" placeholder="Como você quer aparecer nas receitas?" defaultValue={author === "Você" ? "" : author} maxLength={60} /><p className="mt-2 text-xs text-[#8a776b]">Vamos lembrar seu nome neste navegador para as próximas receitas.</p></div>}
             <div>
               <span className="mb-2 block text-sm font-extrabold">
                 Foto da receita
@@ -188,6 +214,15 @@ export default function RecipeForm({
               defaultValue={recipe?.title}
               maxLength={100}
             />
+            {adminMode && (
+              <Field
+                label="Autor da receita"
+                name="author"
+                placeholder="Nome do autor"
+                defaultValue={recipe?.author || author}
+                maxLength={60}
+              />
+            )}
             <div className="grid gap-5 sm:grid-cols-2">
               <SelectField
                 label="Categoria"
@@ -313,6 +348,41 @@ export default function RecipeForm({
                 />
               </div>
             </div>
+            {adminMode && (
+              <div className="rounded-3xl border border-[#eadfd5] bg-[#fff6d8] p-5">
+                <h3 className="font-display text-xl font-black">
+                  Estrelas e avaliações
+                </h3>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label="Média de estrelas (0 a 5)"
+                    name="rating"
+                    type="number"
+                    placeholder="0"
+                    defaultValue={recipe?.rating ?? 0}
+                    min={0}
+                    max={5}
+                    step={0.1}
+                  />
+                  <Field
+                    label="Total de avaliações"
+                    name="votes"
+                    type="number"
+                    placeholder="0"
+                    defaultValue={recipe?.votes ?? 0}
+                    min={0}
+                    max={10000000}
+                    step={1}
+                  />
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-[#78665b]">
+                  Use média 0 para nenhuma avaliação. Ao alterar estes totais, a
+                  nota local anterior será incorporada ao consolidado; uma nova
+                  avaliação contará à parte. Se os totais não mudarem, sua nota
+                  será preservada.
+                </p>
+              </div>
+            )}
           </fieldset>
           {error && (
             <p

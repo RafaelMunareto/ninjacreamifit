@@ -47,8 +47,7 @@ test("o catálogo local preserva o fluxo completo de uma receita", async (t) => 
   await t.test(
     "salva nome, foto, macros, toppings e etapas sem perder os dados originais",
     async () => {
-      await api.saveProfile("  Júlia  ")
-      id = await api.saveRecipe(input)
+      id = await api.saveRecipe({ ...input, authorName: "  Júlia  " })
       const snapshot = await api.getSnapshot()
       const recipe = snapshot.recipes.find((recipe) => recipe.id === id)
       assert.equal(snapshot.recipes.length, 7)
@@ -186,6 +185,43 @@ test("o catálogo local preserva o fluxo completo de uma receita", async (t) => 
     },
   )
 
+  await t.test("lembra o nome sem mudar a autoria e impede alterar os totais de estrelas", async () => {
+    const before = await api.getSnapshot()
+    assert.equal(before.admin.authenticated, false)
+    const own = before.recipes.find((recipe) => recipe.id === id)
+    await assert.rejects(api.saveRecipe(own, id, { author: "Júlia Silva", rating: 5, votes: 1000 }), /administrador/)
+    await api.saveRecipe({ ...own, authorName: "Júlia Cozinha", authorId: "outro-perfil", rating: 5, votes: 1000 }, id)
+    const after = await api.getSnapshot()
+    const updated = after.recipes.find((recipe) => recipe.id === id)
+    assert.equal(after.profile.name, "Júlia Cozinha")
+    assert.equal(after.profile.id, before.profile.id)
+    assert.equal(updated.authorId, before.profile.id)
+    assert.equal(updated.author, "Júlia Cozinha")
+    assert.equal(updated.rating, own.rating)
+    assert.equal(updated.votes, own.votes)
+    assert.equal(updated.ownRating, own.ownRating)
+  })
+
+  await t.test("salva nome e receita juntos e rejeita nomes inválidos sem alterações parciais", async () => {
+    const before = await api.getSnapshot()
+    await assert.rejects(api.saveRecipe({ ...input, authorName: " ", title: "Receita inválida" }))
+    await assert.rejects(api.saveRecipe({ ...input, authorName: "Outro nome", protein: -1 }))
+    await assert.rejects(api.saveRecipe({ ...input, authorName: "a".repeat(61) }, id))
+    assert.deepEqual(await api.getSnapshot(), before)
+  })
+
+  await t.test("usar o nome de outra pessoa não concede autoria das receitas dela", async () => {
+    const before = await api.getSnapshot()
+    const seed = before.recipes.find((recipe) => recipe.id === "1")
+    await api.saveProfile(seed.author)
+    await assert.rejects(api.saveRecipe({ ...seed, authorId: before.profile.id }, seed.id), /administrador/)
+    await assert.rejects(api.deleteRecipe(seed.id), /administrador/)
+    const after = await api.getSnapshot()
+    assert.equal(after.profile.id, before.profile.id)
+    assert.equal(api.filterRecipes(after.recipes, { collection: "mine", profileId: after.profile.id }).length, 1)
+    await api.saveProfile(before.profile.name)
+  })
+
   await t.test(
     "rejeita dados inválidos sem gravar receitas parciais",
     async () => {
@@ -218,8 +254,8 @@ test("o catálogo local preserva o fluxo completo de uma receita", async (t) => 
   await t.test(
     "protege o catálogo de exemplo contra alterações do perfil local",
     async () => {
-      await assert.rejects(api.saveRecipe(input, "1"), /só pode editar/)
-      await assert.rejects(api.deleteRecipe("1"), /só pode excluir/)
+      await assert.rejects(api.saveRecipe(input, "1"), /administrador/)
+      await assert.rejects(api.deleteRecipe("1"), /administrador/)
       await assert.rejects(api.saveRecipe(input, "nao-existe"))
       assert.equal((await api.getSnapshot()).recipes.length, 7)
     },

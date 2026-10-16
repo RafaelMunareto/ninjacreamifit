@@ -8,7 +8,6 @@ import Modal from "./Modal"
 
 export default function RecipeDetails({
   recipe,
-  isOwner,
   onClose,
   onRate,
   onFavorite,
@@ -16,17 +15,15 @@ export default function RecipeDetails({
   onDelete,
 }: {
   recipe: Recipe
-  isOwner: boolean
   onClose: () => void
   onRate: (value: number) => Promise<void>
   onFavorite: () => Promise<void>
-  onEdit: () => void
-  onDelete: () => Promise<void>
+  onEdit?: () => void
+  onDelete?: () => void
 }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const locked = useRef(false)
   const run = async (action: () => Promise<void>, success = "") => {
     if (locked.current) return
@@ -213,50 +210,7 @@ export default function RecipeDetails({
             {error}
           </p>
         )}
-        {isOwner && (
-          <div className="mt-6 border-t border-[#e7d9ce] pt-5">
-            {confirmDelete ? (
-              <div className="rounded-2xl bg-[#fff0f4] p-4">
-                <p className="text-sm font-bold">
-                  Excluir esta receita e suas avaliações deste navegador?
-                </p>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <button
-                    disabled={pending}
-                    onClick={() => void run(onDelete)}
-                    className="rounded-full bg-[#d63f68] px-5 py-2 text-sm font-bold text-white"
-                  >
-                    {pending ? "Excluindo…" : "Sim, excluir receita"}
-                  </button>
-                  <button
-                    disabled={pending}
-                    onClick={() => setConfirmDelete(false)}
-                    className="rounded-full bg-white px-5 py-2 text-sm font-bold"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex gap-3">
-                <button
-                  onClick={onEdit}
-                  disabled={pending}
-                  className="rounded-full bg-[#342820] px-5 py-2.5 text-sm font-bold text-white"
-                >
-                  Editar receita
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(true)}
-                  disabled={pending}
-                  className="rounded-full border border-[#e7d9ce] px-5 py-2.5 text-sm font-bold text-[#d63f68]"
-                >
-                  Excluir receita
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        {onEdit && onDelete && <div className="mt-6 border-t border-[#e7d9ce] pt-5"><p className="mb-3 text-xs font-bold text-[#8a776b]">Esta receita é sua. Você pode atualizar ou excluir quando quiser.</p><div className="flex flex-wrap gap-3"><button disabled={pending} onClick={onEdit} className="rounded-full bg-[#342820] px-5 py-3 text-sm font-bold text-white">Editar minha receita</button><button disabled={pending} onClick={onDelete} className="rounded-full border border-[#e7d9ce] px-5 py-3 text-sm font-bold text-[#d63f68]">Excluir minha receita</button></div></div>}
       </div>
     </Modal>
   )

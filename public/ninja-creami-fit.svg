@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Ninja CREAMi Fit</title>
+  <rect width="64" height="64" rx="16" fill="#FFFAF3"/>
+  <path d="M12 32C12 21 20 17 32 17S52 21 52 32C52 43 44 47 32 47S12 43 12 32Z" fill="#EF4F78"/>
+  <path d="M46 23C51 32 47 41 33 42C24 43 18 40 15 37C18 44 24 47 32 47C44 47 52 43 52 32C52 28 50 25 46 23Z" fill="#C7325B" fill-opacity=".4"/>
+  <ellipse cx="29" cy="17" rx="12" ry="7" fill="#FFADC4"/>
+  <path d="M20 52C28 56 39 55 47 49" stroke="#342820" stroke-width="5" stroke-linecap="round"/>
+</svg>

@@ -10,12 +10,14 @@ export default function ProfileModal({
   onClose,
   onSave,
   onCollection,
+  onAdmin,
 }: {
   profile: Profile
   recipes: Recipe[]
   onClose: () => void
   onSave: (name: string) => Promise<void>
   onCollection: (collection: "favorites" | "mine") => void
+  onAdmin: () => void
 }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -69,9 +71,9 @@ export default function ProfileModal({
           </button>
         </div>
         <p className="mt-4 text-sm leading-relaxed text-[#78665b]">
-          Este perfil pertence a este navegador. Suas receitas, favoritos e
-          avaliações ficam salvos aqui. Limpar os dados do site remove essas
-          informações.
+          Basta escolher seu nome para criar receitas. Em Minhas receitas, você
+          pode editar e excluir o que enviou, sem senha. Seu perfil e suas receitas
+          serão lembrados neste navegador.
         </p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           <label className="block">
@@ -82,7 +84,8 @@ export default function ProfileModal({
               name="name"
               required
               maxLength={60}
-              defaultValue={profile.name}
+              defaultValue={profile.name === "Você" ? "" : profile.name}
+              placeholder="Como você quer aparecer nas receitas?"
               onChange={() => setSaved(false)}
               className="form-input"
             />
@@ -133,6 +136,18 @@ export default function ProfileModal({
               Meus favoritos →
             </span>
           </button>
+        </div>
+        <div className="mt-6 border-t border-[#e7d9ce] pt-5">
+          <button
+            disabled={saving}
+            onClick={onAdmin}
+            className="flex w-full items-center justify-between rounded-2xl bg-[#342820] px-5 py-4 text-sm font-extrabold text-white"
+          >
+            Administração <Icon name="arrow" size={18} />
+          </button>
+          <p className="mt-2 text-xs text-[#8a776b]">
+            Acesso com senha para gerenciar todas as receitas e os totais de avaliações.
+          </p>
         </div>
       </div>
     </Modal>

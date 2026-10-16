@@ -7,6 +7,8 @@ import Macro from "./components/Macro"
 import RecipeDetails from "./components/RecipeDetails"
 import RecipeForm from "./components/RecipeForm"
 import ProfileModal from "./components/ProfileModal"
+import AdminPanel from "./components/AdminPanel"
+import DeleteRecipeDialog from "./components/DeleteRecipeDialog"
 
 const EMPTY_RECIPES: Recipe[] = []
 
@@ -14,10 +16,14 @@ function RecipeCard({
   recipe,
   onOpen,
   onFavorite,
+  onEdit,
+  onDelete,
 }: {
   recipe: Recipe
   onOpen: () => void
   onFavorite: () => Promise<void>
+  onEdit?: () => void
+  onDelete?: () => void
 }) {
   const [pending, setPending] = useState(false)
   const locked = useRef(false)
@@ -110,6 +116,7 @@ function RecipeCard({
         >
           Ver receita <Icon name="arrow" size={18} />
         </button>
+        {onEdit && onDelete && <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#f0e5da] pt-3"><span className="text-xs font-bold text-[#8a776b]">Sua receita</span><div className="flex gap-2"><button onClick={onEdit} aria-label={`Editar ${recipe.title}`} className="rounded-full bg-[#fff0f4] px-3 py-2 text-xs font-extrabold text-[#d63f68]">Editar</button><button onClick={onDelete} aria-label={`Excluir ${recipe.title}`} className="rounded-full bg-[#f5f0eb] px-3 py-2 text-xs font-extrabold text-[#715f54]">Excluir</button></div></div>}
       </div>
     </article>
   )
@@ -125,9 +132,11 @@ export default function App() {
   const [collection, setCollection] = useState("all")
   const [sort, setSort] = useState("recent")
   const [showSubmit, setShowSubmit] = useState(false)
-  const [editing, setEditing] = useState<Recipe | undefined>()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showProfile, setShowProfile] = useState(false)
+  const [showAdmin, setShowAdmin] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
   const [notice, setNotice] = useState("")
 
@@ -166,6 +175,8 @@ export default function App() {
 
   const recipes = snapshot?.recipes ?? EMPTY_RECIPES
   const selected = recipes.find((recipe) => recipe.id === selectedId)
+  const editing = recipes.find((recipe) => recipe.id === editingId)
+  const deleting = recipes.find((recipe) => recipe.id === deletingId)
   const visibleRecipes = useMemo(
     () =>
       api.filterRecipes(recipes, {
@@ -204,16 +215,16 @@ export default function App() {
   const saveRecipe = async (input: RecipeInput, id?: string) => {
     const savedId = await api.saveRecipe(input, id)
     setShowSubmit(false)
-    setEditing(undefined)
+    setEditingId(null)
     setSelectedId(savedId)
     setCategory("Todos")
     setQuery("")
-    setCollection("all")
+    setCollection("mine")
     setSort("recent")
     setNotice(
       id
         ? "Alterações salvas neste navegador!"
-        : "Receita salva neste navegador!",
+        : "Receita salva! Ela já está em Minhas receitas.",
     )
   }
   const toggleFavorite = async (recipe: Recipe) => {
@@ -222,6 +233,33 @@ export default function App() {
     } catch (cause) {
       setNotice(api.errorMessage(cause))
     }
+  }
+
+  const openAdmin = () => {
+    setShowProfile(false)
+    setShowAdmin(true)
+    setNotice("")
+    window.scrollTo({ top: 0 })
+  }
+  const editRecipe = (id: string) => {
+    setEditingId(id)
+    setShowSubmit(true)
+  }
+  const confirmDelete = (id: string) => {
+    setSelectedId(null)
+    setDeletingId(id)
+  }
+
+  if (showAdmin && snapshot) {
+    return (
+      <AdminPanel
+        snapshot={snapshot}
+        onClose={() => {
+          setShowAdmin(false)
+          window.scrollTo({ top: 0 })
+        }}
+      />
+    )
   }
 
   return (
@@ -532,17 +570,18 @@ export default function App() {
                   recipe={recipe}
                   onOpen={() => setSelectedId(recipe.id)}
                   onFavorite={() => toggleFavorite(recipe)}
+                  onEdit={recipe.authorId === snapshot?.profile.id ? () => editRecipe(recipe.id) : undefined}
+                  onDelete={recipe.authorId === snapshot?.profile.id ? () => confirmDelete(recipe.id) : undefined}
                 />
               ))}
             </div>
           ) : (
             <div className="mt-12 rounded-[32px] bg-[#fff6d8] p-12 text-center">
               <strong className="font-display text-2xl">
-                Nenhum sabor por aqui ainda.
+                {collection === "mine" && !query && category === "Todos" ? "Suas receitas ficam aqui." : "Nenhum sabor por aqui ainda."}
               </strong>
               <p className="mt-2 text-[#79685d]">
-                Tente outra busca ou seja a primeira pessoa a criar essa
-                receita.
+                {collection === "mine" && !query && category === "Todos" ? "Escolha seu nome ao enviar uma receita. Depois, você poderá editar ou excluir por aqui, sem precisar de senha." : "Tente outra busca ou seja a primeira pessoa a criar essa receita."}
               </p>
               <button
                 onClick={() => {
@@ -554,6 +593,7 @@ export default function App() {
               >
                 Ver todas as receitas
               </button>
+              {collection === "mine" && <button disabled={!snapshot} onClick={() => { setEditingId(null); setShowSubmit(true) }} className="ml-2 mt-4 rounded-full bg-[#ef4f78] px-5 py-3 text-sm font-extrabold text-white">Criar minha receita</button>}
             </div>
           )}
         </div>
@@ -622,29 +662,30 @@ export default function App() {
               CREAMi. Não somos afiliados à marca Ninja.
             </p>
           </div>
-          <p className="text-sm font-semibold text-[#baa99d]">
-            Feito com cremosidade no Brasil · {new Date().getFullYear()}
-          </p>
+          <div className="space-y-3 sm:text-right">
+            <button
+              disabled={!snapshot}
+              onClick={openAdmin}
+              className="text-sm font-bold underline underline-offset-4"
+            >
+              Administração
+            </button>
+            <p className="text-sm font-semibold text-[#baa99d]">
+              Feito com cremosidade no Brasil · {new Date().getFullYear()}
+            </p>
+          </div>
         </div>
       </footer>
 
-      {selected && !showSubmit && (
+      {selected && !showSubmit && !deleting && (
         <RecipeDetails
           key={selected.id}
           recipe={selected}
-          isOwner={selected.authorId === snapshot?.profile.id}
           onClose={() => setSelectedId(null)}
           onRate={(value) => api.rateRecipe(selected.id, value)}
           onFavorite={() => api.toggleFavorite(selected.id)}
-          onEdit={() => {
-            setEditing(selected)
-            setShowSubmit(true)
-          }}
-          onDelete={async () => {
-            await api.deleteRecipe(selected.id)
-            setSelectedId(null)
-            setNotice("Receita excluída deste navegador.")
-          }}
+          onEdit={selected.authorId === snapshot?.profile.id ? () => editRecipe(selected.id) : undefined}
+          onDelete={selected.authorId === snapshot?.profile.id ? () => confirmDelete(selected.id) : undefined}
         />
       )}
       {showSubmit && snapshot && (
@@ -655,10 +696,11 @@ export default function App() {
           onSave={saveRecipe}
           onClose={() => {
             setShowSubmit(false)
-            setEditing(undefined)
+            setEditingId(null)
           }}
         />
       )}
+      {deleting && <DeleteRecipeDialog key={deleting.id} recipe={deleting} onClose={() => setDeletingId(null)} onDelete={async () => { await api.deleteRecipe(deleting.id); setDeletingId(null); setNotice("Sua receita foi excluída.") }} />}
       {showProfile && snapshot && (
         <ProfileModal
           profile={snapshot.profile}
@@ -666,6 +708,7 @@ export default function App() {
           onClose={() => setShowProfile(false)}
           onSave={api.saveProfile}
           onCollection={openCollection}
+          onAdmin={openAdmin}
         />
       )}
       {notice && (
