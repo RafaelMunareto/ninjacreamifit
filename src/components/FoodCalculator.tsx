@@ -297,7 +297,9 @@ export default function FoodCalculator({
       const result = await response.json()
       if (!response.ok)
         throw new Error(
-          result.error || "Não foi possível identificar o alimento.",
+          result.detail
+            ? `${result.error || "Não foi possível identificar o alimento."} (${result.detail})`
+            : result.error || "Não foi possível identificar o alimento.",
         )
       const quantity = Number(result.quantity)
       const rawSuggestions = (

@@ -29,6 +29,7 @@ async function analyzeWithGemini(imageData) {
     process.env.GEMINI_MODEL,
     "gemini-2.5-flash",
     "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
     "gemini-1.5-flash",
   ].filter((model, index, all) => model && all.indexOf(model) === index)
   let lastError
@@ -207,7 +208,13 @@ export default async function handler(request, response) {
     )
     response.statusCode = 500
     response.end(
-      JSON.stringify({ error: "Não foi possível analisar a foto agora." }),
+      JSON.stringify({
+        error: "A IA não respondeu. Tente novamente com uma foto mais nítida.",
+        detail:
+          error instanceof Error
+            ? error.message.slice(0, 240)
+            : "Erro do provedor de IA.",
+      }),
     )
   }
 }
