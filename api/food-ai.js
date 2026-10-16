@@ -224,18 +224,16 @@ export default async function handler(request, response) {
     response.setHeader("Cache-Control", "no-store")
     response.end(JSON.stringify({ foods, ...foods[0] }))
   } catch (error) {
-    console.error(
-      "food-ai provider error",
-      error instanceof Error ? error.message : error,
-    )
+    const detail = error instanceof Error ? error.message : String(error)
+    const depleted = /credits? are depleted|prepayment credits/i.test(detail)
+    console.error("food-ai provider error", detail)
     response.statusCode = 500
     response.end(
       JSON.stringify({
-        error: "A IA não respondeu. Tente novamente com uma foto mais nítida.",
-        detail:
-          error instanceof Error
-            ? error.message.slice(0, 240)
-            : "Erro do provedor de IA.",
+        error: depleted
+          ? "A IA está sem créditos no projeto do Google. Adicione créditos ou configure outro provedor de IA."
+          : "A IA não respondeu. Tente novamente com uma foto mais nítida.",
+        detail: detail.slice(0, 240),
       }),
     )
   }
