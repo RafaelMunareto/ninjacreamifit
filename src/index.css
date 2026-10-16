@@ -32,6 +32,10 @@ select {
   font: inherit;
 }
 
+fieldset {
+  min-inline-size: 0;
+}
+
 .form-input {
   width: 100%;
   border: 1px solid #e7d9ce;

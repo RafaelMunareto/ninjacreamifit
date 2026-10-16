@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@vercel/blob": "2.8.2",
+    "@zxing/browser": "^0.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sql.js": "1.15.0"

@@ -203,7 +203,7 @@ export default function RecipeForm({
               : "Escolha seu nome e envie a receita. Depois, você poderá editar ou excluir em Minhas receitas."}
         </p>
         <form onSubmit={submit} className="mt-7 space-y-5" aria-busy={busy}>
-          <fieldset disabled={busy} className="space-y-5">
+          <fieldset disabled={busy} className="min-w-0 space-y-5 border-0 p-0">
             {!adminMode && (
               <div>
                 <Field

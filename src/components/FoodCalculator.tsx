@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useRef, useState } from "react"
+import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser"
 import type { FoodReference, LocalFood, Nutrition } from "../types"
 import {
   calculateNutrition,
@@ -59,6 +60,7 @@ export default function FoodCalculator({
   const [scanning, setScanning] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const scanStreamRef = useRef<MediaStream | null>(null)
+  const scannerControlsRef = useRef<IScannerControls | null>(null)
   const [error, setError] = useState("")
   const [restoreError, setRestoreError] = useState("")
   const [retry, setRetry] = useState(0)
@@ -162,64 +164,37 @@ export default function FoodCalculator({
   }
 
   const scanBarcode = async () => {
-    const Detector = (window as unknown as {
-      BarcodeDetector?: new (
-        options?: object,
-      ) => {
-        detect: (
-          video: HTMLVideoElement,
-        ) => Promise<Array<{ rawValue: string }>>
-      }
-    }).BarcodeDetector
+    const video = videoRef.current
+    if (!video) return
+    setSearchError("")
     setScanning(true)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-      })
-      scanStreamRef.current = stream
-      if (!videoRef.current) return
-      videoRef.current.srcObject = stream
-      await videoRef.current.play()
-      if (Detector) {
-        const detector = new Detector({
-          formats: ["ean_13", "ean_8", "upc_a", "upc_e"],
-        })
-        for (
-          let attempt = 0;
-          attempt < 100 && scanStreamRef.current;
-          attempt++
-        ) {
-          const found = await detector.detect(videoRef.current)
-          if (found[0]?.rawValue) {
-            setQuery(found[0].rawValue)
-            break
-          }
-          await new Promise((resolve) => window.setTimeout(resolve, 100))
-        }
-      } else {
-        setSearchError(
-          "A câmera está aberta. Este navegador não decodifica o código automaticamente; digite o número abaixo.",
-        )
-        await new Promise<void>((resolve) => {
-          const timer = window.setInterval(() => {
-            if (!scanStreamRef.current) {
-              window.clearInterval(timer)
-              resolve()
-            }
-          }, 100)
-        })
-      }
+      const reader = new BrowserMultiFormatReader()
+      scannerControlsRef.current = await reader.decodeFromVideoDevice(
+        undefined,
+        video,
+        (result, _error, controls) => {
+          const value = result?.getText().trim()
+          if (!value) return
+          controls.stop()
+          scannerControlsRef.current = null
+          scanStreamRef.current?.getTracks().forEach((track) => track.stop())
+          scanStreamRef.current = null
+          setQuery(value)
+          setScanning(false)
+        },
+      )
     } catch {
+      scannerControlsRef.current = null
       setSearchError(
         "Não foi possível acessar a câmera. Confira a permissão ou digite o código manualmente.",
       )
-    } finally {
-      scanStreamRef.current?.getTracks().forEach((track) => track.stop())
-      scanStreamRef.current = null
       setScanning(false)
     }
   }
   const closeScanner = () => {
+    scannerControlsRef.current?.stop()
+    scannerControlsRef.current = null
     scanStreamRef.current?.getTracks().forEach((track) => track.stop())
     scanStreamRef.current = null
     setScanning(false)
