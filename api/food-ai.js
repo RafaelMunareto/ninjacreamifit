@@ -146,7 +146,11 @@ export default async function handler(request, response) {
     response.statusCode = 200
     response.setHeader("Cache-Control", "no-store")
     response.end(JSON.stringify({ food: parsed.food.trim() }))
-  } catch {
+  } catch (error) {
+    console.error(
+      "food-ai provider error",
+      error instanceof Error ? error.message : error,
+    )
     response.statusCode = 500
     response.end(
       JSON.stringify({ error: "Não foi possível analisar a foto agora." }),
