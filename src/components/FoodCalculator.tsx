@@ -240,6 +240,10 @@ export default function FoodCalculator({
           setVoiceQuantity({ quantity, unit })
         spokenFood = transcript.replace(quantityMatch[0], "").trim()
       }
+      spokenFood = spokenFood.replace(
+        /^(?:adicione|adicionar|registrar|registre|coloque|incluir)\s+/i,
+        "",
+      )
       setQuery(spokenFood || transcript)
       setLimit(20)
       setSearchError("")
