@@ -262,7 +262,13 @@ async function searchAllSources(catalog, query, barcode, limit) {
     foods: foods.slice(0, limit),
     total: foods.length,
     sources: ["TBCA", "IBGE", "Open Food Facts", "FatSecret"],
-    ...(fatSecretError ? { sourceErrors: { FatSecret: fatSecretError } } : {}),
+    sourceDiagnostics: {
+      FatSecret:
+        fatSecretError ||
+        (process.env.FATSECRET_CLIENT_ID && process.env.FATSECRET_CLIENT_SECRET
+          ? "ok"
+          : "credentials_missing"),
+    },
   }
 }
 export default createFoodHandler()
