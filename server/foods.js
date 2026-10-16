@@ -154,7 +154,11 @@ async function searchFatSecret(query, barcode, limit) {
         Authorization: `Basic ${auth}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: "grant_type=client_credentials&scope=basic",
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        // Barcode lookup is a separate FatSecret permission from basic search.
+        scope: "basic barcode",
+      }),
       signal: AbortSignal.timeout(5000),
     },
   )
