@@ -64,7 +64,7 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-[#211914]/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 grid place-items-center bg-[#211914]/70 p-4 backdrop-blur-sm max-sm:p-0"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
