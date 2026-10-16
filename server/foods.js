@@ -147,39 +147,67 @@ async function searchFatSecret(query, barcode, limit) {
   if (!tokenResponse.ok)
     throw new Error(`FatSecret auth ${tokenResponse.status}`)
   const token = (await tokenResponse.json()).access_token
-  const endpoint = new URL(
-    "https://platform.fatsecret.com/rest/foods/search/v1",
-  )
-  endpoint.searchParams.set("format", "json")
-  endpoint.searchParams.set("max_results", String(Math.min(limit, 50)))
-  endpoint.searchParams.set("search_expression", barcode || query)
-  const response = await fetch(endpoint, {
-    headers: { Authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(5000),
-  })
-  if (!response.ok) throw new Error(`FatSecret ${response.status}`)
-  const data = await response.json()
-  const foods = (Array.isArray(data.foods?.food) ? data.foods.food : [])
-    .map((item) => {
-      const text = String(item.food_description || "")
-      const number = (label) => {
-        const value = Number(
-          text.match(new RegExp(`${label}:\\s*([\\d.]+)`, "i"))?.[1],
-        )
-        return Number.isFinite(value) ? value : null
-      }
-      return {
-        id: `FATSECRET:${String(item.food_id || "")}`,
-        name: String(item.food_name || "").trim(),
-        category: String(item.food_type || "FatSecret"),
-        source: "FatSecret",
-        calories: number("Calories"),
-        protein: number("Protein"),
-        carbs: number("Carbs"),
-        fat: number("Fat"),
-      }
+  const request = async (method, params) => {
+    const endpoint = new URL("https://platform.fatsecret.com/rest/server.api")
+    endpoint.searchParams.set("method", method)
+    endpoint.searchParams.set("format", "json")
+    for (const [key, value] of Object.entries(params))
+      endpoint.searchParams.set(key, String(value))
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(5000),
     })
-    .filter((item) => item.name && /^FATSECRET:\d+$/.test(item.id))
+    if (!response.ok) throw new Error(`FatSecret ${response.status}`)
+    return response.json()
+  }
+  let ids
+  if (barcode) {
+    const found = await request("food.find_id_for_barcode", { barcode })
+    const foodId = found.food_id || found.fod_id?.value
+    ids = foodId && foodId !== "0" ? [String(foodId)] : []
+  } else {
+    const data = await request("foods.search.v2", {
+      search_expression: query,
+      max_results: Math.min(limit, 20),
+    })
+    ids = (Array.isArray(data.foods?.food) ? data.foods.food : [])
+      .map((item) => String(item.food_id))
+      .filter(Boolean)
+  }
+  const foods = (await Promise.all(ids.slice(0, limit).map(async (foodId) => {
+        const data = await request("food.get.v2", { food_id: foodId })
+        const item = data.food || {}
+        const servings = Array.isArray(item.servings?.serving)
+          ? item.servings.serving
+          : item.servings?.serving
+            ? [item.servings.serving]
+            : []
+        const serving =
+          servings.find(
+            (entry) => String(entry.metric_serving_amount) === "100",
+          ) ||
+          servings[0] ||
+          {}
+        const amount = Number(serving.metric_serving_amount) || 100
+        const scale = 100 / amount
+        const number = (key) => {
+          const value = Number(serving[key])
+          return Number.isFinite(value)
+            ? Math.round(value * scale * 100) / 100
+            : null
+        }
+        return {
+          id: `FATSECRET:${foodId}`,
+          name: String(item.food_name || "").trim(),
+          category: String(item.food_type || "FatSecret"),
+          source: "FatSecret",
+          calories: number("calories"),
+          protein: number("protein"),
+          carbs: number("carbohydrate"),
+          fat: number("fat"),
+        }
+      }))).filter((item) => item.name && /^FATSECRET:\d+$/.test(item.id))
   return { foods, total: foods.length }
 }
 

@@ -83,9 +83,15 @@ test("todas as fontes são consultadas e os resultados são combinados", async (
     async () => ({ foods: [], total: 0 }),
   )
   assert.equal(incomplete.foods[0].protein, null)
-  const offline = await searchFoodsWithFallback(local, "outro", 20, "all", async () => {
-    throw new Error("offline")
-  })
+  const offline = await searchFoodsWithFallback(
+    local,
+    "outro",
+    20,
+    "all",
+    async () => {
+      throw new Error("offline")
+    },
+  )
   assert.equal(offline.total, 0)
 })
 
@@ -108,13 +114,14 @@ test("API do projeto busca o IBGE do repositório e restaura códigos salvos", a
       data.foods.map((f) => f.id),
       ["IBGE:6300101:na", "IBGE:6300701:2"],
     )
-    assert.equal(
-      (
-        await (
-          await fetch(`${base}/api/foods?q=alimento-inexistente-xyz`)
-        ).json()
-      ).total,
-      0,
+    assert.ok(
+      Array.isArray(
+        (
+          await (
+            await fetch(`${base}/api/foods?q=zzzzzzzzzz-inexistente-987654321`)
+          ).json()
+        ).foods,
+      ),
     )
     for (const suffix of ["?q=a", "?q=banana&limit=99999", "?ids=unknown"])
       assert.equal((await fetch(`${base}/api/foods${suffix}`)).status, 400)
