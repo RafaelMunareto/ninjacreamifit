@@ -6,7 +6,7 @@ import {
   timingSafeEqual,
   pbkdf2,
 } from "node:crypto"
-import { verifyToken } from "@clerk/backend"
+import { createClerkClient, verifyToken } from "@clerk/backend"
 import { promisify } from "node:util"
 import { seedRecipes, categoryColors } from "../src/data/recipes.js"
 import {
@@ -18,6 +18,11 @@ import { ConflictError } from "./storage.js"
 const derive = promisify(pbkdf2)
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const PHOTO = /^\/api\/image\?id=([0-9a-f-]{36})$/i
+const DEFAULT_ADMIN_EMAILS = new Set([
+  "rafaelmmunareto@gmail.com",
+  "rafael.munareto@icloud.com",
+  "vitorsalima@gmail.com",
+])
 const digest = (value) => createHash("sha256").update(value).digest("hex")
 const text = (...args) => {
   try {
@@ -111,8 +116,8 @@ function isAdmin(token, credential) {
   return equal(signature, expected)
 }
 
-function requireAdmin(token, state) {
-  if (!isAdmin(token, state.admin))
+function requireAdmin(token, state, emailAdmin = false) {
+  if (!emailAdmin && !isAdmin(token, state.admin))
     fail(
       "Entre como administrador para gerenciar esta receita ou alterar as avaliações.",
       403,
@@ -163,7 +168,7 @@ function aggregate(state, recipe) {
   }
 }
 
-function snapshotOf(state, profile, adminToken) {
+function snapshotOf(state, profile, adminToken, emailAdmin = false) {
   const profiles = new Map(
     state.profiles.map((profile) => [profile.id, profile]),
   )
@@ -171,7 +176,7 @@ function snapshotOf(state, profile, adminToken) {
     profile: { id: profile.id, name: profile.name },
     admin: {
       configured: Boolean(state.admin),
-      authenticated: isAdmin(adminToken, state.admin),
+      authenticated: emailAdmin || isAdmin(adminToken, state.admin),
     },
     recipes: state.recipes
       .map((recipe) => ({
@@ -206,7 +211,7 @@ function updateRating(state, profile, id, value) {
   else state.ratings.push({ recipeId: id, profileId: profile.id, value })
 }
 
-function apply(state, profile, adminToken, action, data) {
+function apply(state, profile, adminToken, action, data, emailAdmin = false) {
   if (action === "profile") {
     profile.name = text(data.name, "seu nome", 60)
     return {}
@@ -236,7 +241,8 @@ function apply(state, profile, adminToken, action, data) {
   }
   if (action === "delete") {
     const recipe = recipeFor(state, data.id)
-    if (recipe.authorId !== profile.id) requireAdmin(adminToken, state)
+    if (recipe.authorId !== profile.id)
+      requireAdmin(adminToken, state, emailAdmin)
     state.recipes = state.recipes.filter((item) => item.id !== recipe.id)
     state.ratings = state.ratings.filter(
       (rating) => rating.recipeId !== recipe.id,
@@ -260,8 +266,8 @@ function apply(state, profile, adminToken, action, data) {
   }
   const existing = data.id ? recipeFor(state, data.id) : null
   if (existing && existing.authorId !== profile.id)
-    requireAdmin(adminToken, state)
-  if (data.details) requireAdmin(adminToken, state)
+    requireAdmin(adminToken, state, emailAdmin)
+  if (data.details) requireAdmin(adminToken, state, emailAdmin)
   const input = data.input
   if (!input || typeof input !== "object") fail("Informe os dados da receita.")
   const allowedImage = PHOTO.test(input.image || "")
@@ -366,8 +372,24 @@ function apply(state, profile, adminToken, action, data) {
 
 export function createService(
   storage,
-  { initialAdmin = null, allowSetup = false, clerkSecretKey = "" } = {},
+  {
+    initialAdmin = null,
+    allowSetup = false,
+    clerkSecretKey = "",
+    adminEmails = DEFAULT_ADMIN_EMAILS,
+  } = {},
 ) {
+  const emailAdmins = new Set(
+    adminEmails instanceof Set
+      ? [...adminEmails].map((email) => String(email).trim().toLowerCase())
+      : String(adminEmails || "")
+          .split(",")
+          .map((email) => email.trim().toLowerCase())
+          .filter(Boolean),
+  )
+  const clerk = clerkSecretKey
+    ? createClerkClient({ secretKey: clerkSecretKey })
+    : null
   const initialState = () => ({
     version: 1,
     recipes: structuredClone(seedRecipes),
@@ -397,6 +419,7 @@ export function createService(
       fail("Identificação do perfil inválida.", 401)
     }
     let tokenHash
+    let emailAdmin = false
     if (/^[a-f0-9]{64}$/.test(token)) {
       tokenHash = digest(token)
     } else if (clerkSecretKey) {
@@ -405,6 +428,17 @@ export function createService(
         if (typeof claims.sub !== "string" || !claims.sub)
           fail("Sessão do usuário inválida.", 401)
         tokenHash = digest(`clerk:${claims.sub}`)
+        if (clerk && emailAdmins.size) {
+          try {
+            const user = await clerk.users.getUser(claims.sub)
+            const email = user.primaryEmailAddress?.emailAddress
+            emailAdmin =
+              typeof email === "string" &&
+              emailAdmins.has(email.trim().toLowerCase())
+          } catch {
+            emailAdmin = false
+          }
+        }
       } catch {
         fail("Sessão do usuário inválida.", 401)
       }
@@ -419,6 +453,7 @@ export function createService(
     return {
       state,
       tokenHash,
+      emailAdmin,
       profile: state.profiles.find(
         (profile) => profile.tokenHash === tokenHash,
       ),
@@ -426,11 +461,11 @@ export function createService(
   }
   return {
     async snapshot(token, adminToken) {
-      const { state, profile } = await identify(token)
-      return snapshotOf(state, profile, adminToken)
+      const { state, profile, emailAdmin } = await identify(token)
+      return snapshotOf(state, profile, adminToken, emailAdmin)
     },
     async perform(action, data, token, adminToken) {
-      const { state, tokenHash, profile } = await identify(token)
+      const { state, tokenHash, profile, emailAdmin } = await identify(token)
       if (action === "logout") return { value: null, adminToken: null }
       if (action === "login") {
         if (!state.admin || !(await verifyPassword(data.password, state.admin)))
@@ -451,12 +486,12 @@ export function createService(
         return { value: null, adminToken: issueAdminSession(credential) }
       }
       if (action === "changePassword") {
-        requireAdmin(adminToken, state)
+        requireAdmin(adminToken, state, emailAdmin)
         if (!(await verifyPassword(data.currentPassword, state.admin)))
           fail("Senha atual incorreta.", 401)
         const credential = await makeAdminCredential(data.newPassword)
         await mutate((current) => {
-          requireAdmin(adminToken, current)
+          requireAdmin(adminToken, current, emailAdmin)
           if (current.admin.hash !== state.admin.hash)
             fail("A senha foi alterada. Entre novamente.", 401)
           current.admin = credential
@@ -470,6 +505,7 @@ export function createService(
         adminToken,
         action,
         prepared,
+        emailAdmin,
       )
       if (preview.alreadyImported) return { value: preview.id }
       let newImage
@@ -498,6 +534,7 @@ export function createService(
             adminToken,
             action,
             prepared,
+            emailAdmin,
           ),
         )
         if (result.alreadyImported && newImage)
