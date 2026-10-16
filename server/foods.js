@@ -231,6 +231,7 @@ async function searchFatSecret(query, barcode, limit) {
 
 async function searchAllSources(catalog, query, barcode, limit) {
   const perSourceLimit = Math.max(1, Math.ceil(limit / 3))
+  let fatSecretError = ""
   const [local, openFoodFacts, fatSecret] = await Promise.all([
     Promise.resolve(
       barcode
@@ -241,10 +242,10 @@ async function searchAllSources(catalog, query, barcode, limit) {
       foods: [],
       total: 0,
     })),
-    searchFatSecret(query, barcode, perSourceLimit).catch(() => ({
-      foods: [],
-      total: 0,
-    })),
+    searchFatSecret(query, barcode, perSourceLimit).catch((error) => {
+      fatSecretError = error instanceof Error ? error.message : String(error)
+      return { foods: [], total: 0 }
+    }),
   ])
   const foods = []
   const max = Math.max(
@@ -261,6 +262,7 @@ async function searchAllSources(catalog, query, barcode, limit) {
     foods: foods.slice(0, limit),
     total: foods.length,
     sources: ["TBCA", "IBGE", "Open Food Facts", "FatSecret"],
+    ...(fatSecretError ? { sourceErrors: { FatSecret: fatSecretError } } : {}),
   }
 }
 export default createFoodHandler()
