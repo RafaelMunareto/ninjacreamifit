@@ -241,6 +241,20 @@ export default function App() {
     setShowProfile(false)
     scrollToRecipes()
   }
+  const openSubmit = () => {
+    if (!snapshot) {
+      setNotice("Aguarde o carregamento das receitas e tente novamente.")
+      return
+    }
+    setShowSubmit(true)
+  }
+  const openProfile = () => {
+    if (!snapshot) {
+      setNotice("Aguarde o carregamento do seu perfil e tente novamente.")
+      return
+    }
+    setShowProfile(true)
+  }
   const saveRecipe = async (input: RecipeInput, id?: string) => {
     const savedId = await api.saveRecipe(input, id)
     setShowSubmit(false)
@@ -325,15 +339,13 @@ export default function App() {
               Comunidade
             </button>
             <button
-              disabled={!snapshot}
-              onClick={() => setShowSubmit(true)}
+              onClick={openSubmit}
               className="flex items-center gap-2 rounded-full bg-[#ef4f78] px-5 py-3 text-sm font-extrabold text-white shadow-[0_6px_0_#c9355c] transition hover:-translate-y-0.5"
             >
               <Icon name="plus" size={18} /> Enviar receita
             </button>
             <button
-              disabled={!snapshot}
-              onClick={() => setShowProfile(true)}
+              onClick={openProfile}
               className="grid size-11 place-items-center rounded-full border border-[#e8dbcf] bg-white"
               aria-label="Abrir perfil"
             >
@@ -371,19 +383,33 @@ export default function App() {
               Receitas
             </button>
             <button
-              disabled={!snapshot}
               onClick={() => {
-                setShowProfile(true)
+                openProfile()
                 setMobileMenu(false)
               }}
               className="block w-full py-3 text-left font-bold"
             >
               Meu perfil
             </button>
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button
+                  onClick={() => setMobileMenu(false)}
+                  className="block w-full py-3 text-left font-extrabold text-[#ef4f78]"
+                >
+                  Entrar com Google ou Apple
+                </button>
+              </SignInButton>
+            </Show>
+            <Show when="signed-in">
+              <div className="flex items-center justify-between py-3">
+                <span className="font-extrabold">Sua conta</span>
+                <UserButton />
+              </div>
+            </Show>
             <button
-              disabled={!snapshot}
               onClick={() => {
-                setShowSubmit(true)
+                openSubmit()
                 setMobileMenu(false)
               }}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-[#ef4f78] px-5 py-3 font-extrabold text-white"
@@ -432,8 +458,7 @@ export default function App() {
               Explorar sabores <Icon name="arrow" />
             </button>
             <button
-              disabled={!snapshot}
-              onClick={() => setShowSubmit(true)}
+              onClick={openSubmit}
               className="flex items-center justify-center gap-3 rounded-full border-2 border-[#342820] bg-white px-7 py-4 font-extrabold transition hover:bg-[#fff0f4]"
             >
               <Icon name="plus" /> Criar receita
