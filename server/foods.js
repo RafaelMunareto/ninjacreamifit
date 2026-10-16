@@ -156,8 +156,8 @@ async function searchFatSecret(query, barcode, limit) {
       },
       body: new URLSearchParams({
         grant_type: "client_credentials",
-        // Barcode lookup is a separate FatSecret permission from basic search.
-        scope: "basic barcode",
+        // FatSecret grants barcode and text search through different scopes.
+        scope: barcode ? "basic barcode" : "basic premier",
       }),
       signal: AbortSignal.timeout(5000),
     },
