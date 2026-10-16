@@ -19,6 +19,7 @@ import {
   loadFoodCatalog,
   searchFoodApi,
   restoreApiFoods,
+  searchFoods,
   searchFoodsWithFallback,
 } from "../lib/nutrition.js"
 import Icon from "./Icon"
@@ -334,9 +335,16 @@ export default function FoodCalculator({
         void Promise.all(
           suggestions.map(async (item) => {
             try {
+              const localMatch = searchFoods(
+                catalog,
+                item.food,
+                5,
+                source,
+              ).foods.find(hasCompleteNutrition)
+              if (localMatch) return localMatch
               const found = await searchFoodsWithFallback(
                 catalog,
-                `${item.brand} ${item.food}`.trim(),
+                item.food,
                 5,
                 source,
                 (term, count) => searchFoodApi(term, count),
