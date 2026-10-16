@@ -189,9 +189,12 @@ async function searchFatSecret(query, barcode, limit) {
       search_expression: query,
       max_results: Math.min(limit, 20),
     })
-    ids = (Array.isArray(data.foods?.food) ? data.foods.food : [])
-      .map((item) => String(item.food_id))
-      .filter(Boolean)
+    const entries = Array.isArray(data.foods?.food)
+      ? data.foods.food
+      : data.foods?.food
+        ? [data.foods.food]
+        : []
+    ids = entries.map((item) => String(item.food_id)).filter(Boolean)
   }
   const foods = (await Promise.all(ids.slice(0, limit).map(async (foodId) => {
         const data = await request("food.get.v2", { food_id: foodId })
