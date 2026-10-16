@@ -1,0 +1,142 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", sans-serif;
+  --font-display: "Nunito", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #fffaf3;
+  font-family: "DM Sans", sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+select {
+  font: inherit;
+}
+
+.form-input {
+  width: 100%;
+  border: 1px solid #e7d9ce;
+  border-radius: 1rem;
+  background: white;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: #ef4f78;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #b79af6;
+  outline-offset: 3px;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+button {
+  cursor: pointer;
+}
+
+.logo-scoop {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 28px;
+  border-radius: 50% 50% 42% 42%;
+  background: #ef4f78;
+  box-shadow: inset -5px -4px 0 rgb(199 50 91 / 28%);
+}
+
+.logo-scoop::before {
+  position: absolute;
+  top: -6px;
+  left: 8px;
+  width: 19px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffadc4;
+  content: "";
+}
+
+.logo-scoop span {
+  position: absolute;
+  right: 5px;
+  bottom: -8px;
+  width: 24px;
+  height: 10px;
+  border-bottom: 5px solid #342820;
+  border-radius: 50%;
+  transform: rotate(-8deg);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(-2deg);
+  }
+}
+
+@keyframes float-delay {
+  0%,
+  100% {
+    transform: translateY(0) rotate(2deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(2deg);
+  }
+}
+
+.float-card {
+  animation: float 4s ease-in-out infinite;
+}
+
+.float-card-delay {
+  animation: float-delay 4.5s 0.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

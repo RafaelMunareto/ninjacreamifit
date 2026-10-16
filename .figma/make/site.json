@@ -1,0 +1,10 @@
+{
+  "description": "Discover and share healthy Ninja Creami recipes with detailed macros and user ratings, all in a vibrant, engaging platform for fitness enthusiasts.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
