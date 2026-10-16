@@ -68,6 +68,7 @@ export default function FoodCalculator({
   const [aiMessage, setAiMessage] = useState("")
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
   const scanStreamRef = useRef<MediaStream | null>(null)
   const scannerControlsRef = useRef<IScannerControls | null>(null)
   const [error, setError] = useState("")
@@ -241,7 +242,10 @@ export default function FoodCalculator({
           result.error || "Não foi possível identificar o alimento.",
         )
       setQuery(result.food)
-      setAiMessage("Alimento identificado: " + result.food)
+      requestAnimationFrame(() => searchInputRef.current?.focus())
+      setAiMessage(
+        "Alimento identificado e colocado no campo acima: " + result.food,
+      )
     } catch (cause) {
       setSearchError(
         cause instanceof Error
@@ -309,6 +313,7 @@ export default function FoodCalculator({
             <div className="flex items-center gap-3 rounded-2xl border border-[#e5d8cc] bg-[#fffaf3] px-4">
               <Icon name="search" size={18} />
               <input
+                ref={searchInputRef}
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value)
@@ -335,7 +340,7 @@ export default function FoodCalculator({
               type="button"
               onClick={() => aiPhotoRef.current?.click()}
               disabled={identifyingPhoto}
-              className="rounded-full border border-[#e5d8cc] bg-white px-4 py-2.5 text-xs font-bold text-[#8a776b]"
+              className="rounded-full border border-[#9b7de1] bg-[#b79af6] px-4 py-2.5 text-xs font-extrabold text-[#342820] transition hover:bg-[#a688eb] disabled:cursor-wait disabled:opacity-60"
             >
               {identifyingPhoto ? "Identificando…" : "Foto (IA)"}
             </button>
