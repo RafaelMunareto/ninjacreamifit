@@ -130,7 +130,13 @@ async function analyzeWithHuggingFace(imageData) {
     },
   )
   const data = await upstream.json()
-  if (!upstream.ok) throw new Error(data.error?.message || "Hugging Face error")
+  if (!upstream.ok) {
+    const message =
+      typeof data.error === "string"
+        ? data.error
+        : data.error?.message || data.message || "Hugging Face error"
+    throw new Error(message)
+  }
   const content = data.choices?.[0]?.message?.content
   return parseModelJson(
     Array.isArray(content)
