@@ -276,15 +276,24 @@ export default function FoodCalculator({
                   if (event.key === "Enter") event.preventDefault()
                 }}
               />
-              <button
-                type="button"
-                onClick={() => void scanBarcode()}
-                className="shrink-0 rounded-full bg-[#ef4f78] px-3 py-2 text-xs font-bold text-white"
-              >
-                {scanning ? "Lendo…" : "Ler código"}
-              </button>
             </div>
           </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void scanBarcode()}
+              className="rounded-full bg-[#ef4f78] px-4 py-2.5 text-xs font-bold text-white"
+            >
+              {scanning ? "Lendo código…" : "Ler código de barras"}
+            </button>
+            <button
+              type="button"
+              disabled
+              className="rounded-full border border-[#e5d8cc] bg-white px-4 py-2.5 text-xs font-bold text-[#8a776b]"
+            >
+              Identificar por foto (IA) · em breve
+            </button>
+          </div>
           <div
             className={`relative mt-3 overflow-hidden rounded-2xl bg-black ${
               scanning ? "" : "hidden"
