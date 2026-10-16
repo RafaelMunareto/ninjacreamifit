@@ -667,6 +667,41 @@ export default function FoodCalculator({
               aria-label="Tirar foto do alimento para identificar com IA"
             />
           </div>
+          {(listening || processingVoice) && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-3 overflow-hidden rounded-2xl border border-[#cbd9b2] bg-[#f7faef]"
+            >
+              <div
+                className={`h-1 w-full ${
+                  processingVoice ? "animate-pulse bg-[#6950a8]" : "bg-[#8ca85b]"
+                }`}
+              />
+              <div className="flex items-center gap-3 p-4">
+                <span
+                  className={`grid size-10 shrink-0 place-items-center rounded-full text-lg ${
+                    processingVoice
+                      ? "bg-[#e9e0ff] text-[#6950a8]"
+                      : "animate-pulse bg-[#e5efd0] text-[#52642f]"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {processingVoice ? "✦" : "🎙️"}
+                </span>
+                <span>
+                  <strong className="block text-sm text-[#342820]">
+                    {processingVoice ? "Analisando sua fala" : "Ouvindo o alimento"}
+                  </strong>
+                  <span className="mt-0.5 block text-xs text-[#78665b]">
+                    {processingVoice
+                      ? "Buscando o alimento, a quantidade e os nutrientes…"
+                      : "Fale o alimento e a quantidade. Toque no botão novamente para processar."}
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
           <div
             className={`relative mt-3 overflow-hidden rounded-2xl bg-black ${
               scanning ? "" : "hidden"
