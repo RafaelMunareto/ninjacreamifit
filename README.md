@@ -100,3 +100,13 @@ Para regenerar: `node scripts/import-ibge.mjs` (ou forneça o caminho do SQL ori
 A busca consulta TBCA, IBGE, Open Food Facts e FatSecret simultaneamente. Os resultados são combinados e identificados pela fonte; não existe seletor de API no formulário. FatSecret é ativado no servidor quando `FATSECRET_CLIENT_ID` e `FATSECRET_CLIENT_SECRET` estão configurados na Vercel. A integração usa o OAuth de servidor do Platform API, mantendo as credenciais fora do navegador. A API JavaScript reproduz a consulta de alimentos do repositório e consulta as APIs oficiais no servidor; não executa PHP e não expõe a integração no navegador. A busca possui atraso de 300 ms, cancela consultas antigas e informa falhas de rede. Os pesos e códigos permanecem no SQLite; ao editar, `/api/foods?ids=IBGE:...`, `/api/foods?ids=OFF:...` ou `/api/foods?ids=FATSECRET:...` recupera os alimentos selecionados. `/api/foods` aceita somente GET, valida consulta/códigos e não modifica receitas. Para atualizar os dados IBGE, regenere a base com o importador e publique o projeto.
 
 O formulário também tem leitor de código de barras pela câmera usando `BarcodeDetector` (EAN-8, EAN-13, UPC-A e UPC-E). Em navegadores sem essa API, o mesmo campo aceita digitação manual do código; o valor é consultado simultaneamente no Open Food Facts e no FatSecret.
+
+### Importar exportação do FatSecret
+
+Os exportadores do FatSecret geram dados da conta autorizada, e não uma cópia completa da base pública. Para incorporar alimentos com macros à busca local, salve o CSV exportado e rode:
+
+```sh
+npm run import:fatsecret -- caminho/para/export.csv
+```
+
+O comando grava `public/data/fatsecret-foods-v1.json`. Registros sem calorias, proteína, carboidratos, gordura e peso/volume identificável são ignorados para evitar valores incorretos. Depois, publique novamente o projeto; a base importada será carregada junto com TBCA e ficará disponível mesmo quando o FatSecret estiver bloqueado por IP.

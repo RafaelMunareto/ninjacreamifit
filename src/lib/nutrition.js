@@ -20,10 +20,15 @@ let loading
 /** @returns {Promise<FoodCatalog>} */
 export function loadFoodCatalog() {
   if (!loading)
-    loading = fetch(`${import.meta.env.BASE_URL}data/tbca-foods-v1.json`, {
-      cache: "force-cache",
-    })
-      .then(async (response) => {
+    loading = Promise.all([
+      fetch(`${import.meta.env.BASE_URL}data/tbca-foods-v1.json`, {
+        cache: "force-cache",
+      }),
+      fetch(`${import.meta.env.BASE_URL}data/fatsecret-foods-v1.json`, {
+        cache: "force-cache",
+      }).catch(() => null),
+    ])
+      .then(async ([response, fatSecretResponse]) => {
         if (!response.ok)
           throw new Error("A tabela de alimentos não está disponível.")
         const data = await response.json()
@@ -34,7 +39,17 @@ export function loadFoodCatalog() {
           !data.foods.length
         )
           throw new Error("Tabela de alimentos inválida.")
-        return createFoodCatalog(data.foods)
+        let foods = data.foods
+        if (fatSecretResponse?.ok) {
+          try {
+            const imported = await fatSecretResponse.json()
+            if (imported.version === 1 && Array.isArray(imported.foods))
+              foods = [...foods, ...imported.foods]
+          } catch {
+            // An optional import must never prevent the main catalog from loading.
+          }
+        }
+        return createFoodCatalog(foods)
       })
       .catch((error) => {
         loading = undefined
