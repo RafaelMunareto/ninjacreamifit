@@ -95,6 +95,49 @@ async function analyzeWithGemini(imageData) {
   throw new Error(failures.join(" | ") || lastError?.message || "Gemini error")
 }
 
+async function analyzeWithHuggingFace(imageData) {
+  const upstream = await fetch(
+    "https://router.huggingface.co/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.HF_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.HF_MODEL || "Qwen/Qwen2.5-VL-3B-Instruct",
+        temperature: 0.1,
+        max_tokens: 500,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: 'Identifique até três alimentos visíveis na foto. Para cada um, leia marca e quantidade/volume quando estiverem visíveis. Responda somente JSON no formato {"foods":[{"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}]}. Use quantity null quando não for possível ler. Não invente dados. Use português do Brasil.',
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${imageData.mimeType};base64,${imageData.data}`,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    },
+  )
+  const data = await upstream.json()
+  if (!upstream.ok) throw new Error(data.error?.message || "Hugging Face error")
+  const content = data.choices?.[0]?.message?.content
+  return parseModelJson(
+    Array.isArray(content)
+      ? content.map((part) => part.text || "").join("")
+      : content,
+  )
+}
+
 export default async function handler(request, response) {
   response.setHeader("Content-Type", "application/json; charset=utf-8")
   response.setHeader("X-Content-Type-Options", "nosniff")
@@ -104,7 +147,11 @@ export default async function handler(request, response) {
     response.end(JSON.stringify({ error: "Método não permitido." }))
     return
   }
-  if (!process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY) {
+  if (
+    !process.env.HF_TOKEN &&
+    !process.env.GEMINI_API_KEY &&
+    !process.env.OPENAI_API_KEY
+  ) {
     response.statusCode = 503
     response.end(
       JSON.stringify({
@@ -137,7 +184,9 @@ export default async function handler(request, response) {
       return
     }
     let parsed
-    if (process.env.GEMINI_API_KEY) {
+    if (process.env.HF_TOKEN) {
+      parsed = await analyzeWithHuggingFace(imageData)
+    } else if (process.env.GEMINI_API_KEY) {
       parsed = await analyzeWithGemini(imageData)
     } else {
       const upstream = await fetch(
