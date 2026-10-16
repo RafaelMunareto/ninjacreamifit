@@ -13,7 +13,7 @@ React + Vite com uma API JavaScript e um banco **SQLite** no mesmo projeto da Ve
 
 ## Alimentos e cálculo por peso
 
-No formulário, a pessoa busca um alimento na **base local TBCA**, escolhe o item e informa seu peso em gramas. Calorias, proteínas, carboidratos e gorduras do pote são somados automaticamente. Os alimentos e pesos são preservados para a edição posterior; o preenchimento manual continua disponível.
+No formulário, a pessoa busca um alimento na **bases locais TBCA e IBGE**, com filtro por fonte, escolhe o item e informa seu peso em gramas. Calorias, proteínas, carboidratos e gorduras do pote são somados automaticamente. Os alimentos e pesos são preservados para a edição posterior; o preenchimento manual continua disponível.
 
 A busca e os cálculos acontecem no navegador usando `public/data/tbca-foods-v1.json`, um arquivo estático do próprio site. Não há serviço externo de nutrição, chave de API, conta de provedor ou consulta ao GitHub durante o uso. A tabela só é baixada ao abrir o formulário; depois de carregada, a busca e os cálculos continuam funcionando sem rede. Publicar receitas e ver as atualizações de outros aparelhos continuam exigindo conexão com a API do site.
 
@@ -29,7 +29,7 @@ node scripts/import-tbca.mjs
 node scripts/import-tbca.mjs /caminho/alimentos.txt
 ```
 
-O SQLite de receitas usa a versão 2 do esquema para guardar os códigos TBCA e os pesos. A versão anterior do banco continua sendo lida e é atualizada na próxima gravação, preservando receitas, perfis, notas e senha. A tabela pública de alimentos não contém dados dos usuários.
+O SQLite de receitas usa a versão 2 do esquema para guardar os códigos TBCA/IBGE e os pesos. A versão anterior do banco continua sendo lida e é atualizada na próxima gravação, preservando receitas, perfis, notas e senha. A tabela pública de alimentos não contém dados dos usuários.
 
 ## Armazenamento e API
 
@@ -86,3 +86,11 @@ vercel deploy --prod
 Não coloque tokens ou a credencial de administrador em variáveis `VITE_*`, pois elas são enviadas ao navegador.
 
 Os testes cobrem o fluxo HTTP entre perfis independentes, autorização, fotos, votos, migração, gravações concorrentes e persistência após reiniciar o servidor. A migração para SQLite verifica também a integridade do arquivo, consultas SQL relacionais, preservação dos dados antigos e rejeição de gravações inválidas ou desatualizadas. Os testes da API antiga permanecem para compatibilidade com dados anteriores.
+
+### Base IBGE adicional
+
+Incluímos os dados do [tabela-taco-api](https://github.com/renandspedrosa/tabela-taco-api), fixados no commit `c5eccf85aabf7bfaea9f9033e38b0a74665770c4`. Apesar do nome do repositório, essa versão contém IBGE, não a tabela TACO/UNICAMP. Não requer Laravel, conta ou API externa: `public/data/ibge-foods-v1.json` é carregado junto à TBCA apenas ao abrir o formulário.
+
+São 1.971 combinações de alimento/preparação, com 1.312 registros completos para cálculo. Valores ausentes (`-`, `NA`, vazios) permanecem desconhecidos e impedem selecionar o registro para cálculo; zero explícito é aceito. Cada preparação tem identificador próprio (`IBGE:<código>:<preparação>`), mantendo os códigos TBCA anteriores. Valores por 100 g da parte comestível, conforme a [publicação do IBGE](https://biblioteca.ibge.gov.br/visualizacao/livros/liv50002.pdf); cada base mantém seus valores separados.
+
+Para regenerar: `node scripts/import-ibge.mjs` (ou forneça o caminho do SQL original como argumento). O importador lê somente literais dos INSERTs, sem executar o SQL, e registra o SHA-256 da fonte no JSON. O SQL bruto não é distribuído no aplicativo.

@@ -41,6 +41,7 @@ export default function FoodCalculator({
   const initial = useRef(initialItems).current
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [items, setItems] = useState<FoodLine[]>([])
+  const [source, setSource] = useState("all")
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)
   const [limit, setLimit] = useState(20)
@@ -88,9 +89,9 @@ export default function FoodCalculator({
   const results = useMemo(
     () =>
       catalog
-        ? searchFoods(catalog, deferredQuery, limit)
+        ? searchFoods(catalog, deferredQuery, limit, source)
         : { foods: [], total: 0 },
-    [catalog, deferredQuery, limit],
+    [catalog, deferredQuery, limit, source],
   )
   const publish = (updated: FoodLine[]) => {
     setItems(updated)
@@ -117,7 +118,7 @@ export default function FoodCalculator({
           Alimentos e peso do pote
         </h3>
         <span className="rounded-full bg-[#eef8dd] px-3 py-1 text-[11px] font-extrabold text-[#52642f]">
-          Tabela brasileira · TBCA
+          TBCA + IBGE
         </span>
       </div>
       <p className="mt-2 text-sm leading-relaxed text-[#78665b]">
@@ -166,6 +167,24 @@ export default function FoodCalculator({
         <>
           <label className="mt-5 block">
             <span className="mb-2 block text-sm font-extrabold">
+              Base de alimentos
+            </span>
+            <select
+              aria-label="Base de alimentos"
+              className="form-input"
+              value={source}
+              onChange={(event) => {
+                setSource(event.target.value)
+                setLimit(20)
+              }}
+            >
+              <option value="all">Todas as bases</option>
+              <option value="TBCA">TBCA</option>
+              <option value="IBGE">IBGE</option>
+            </select>
+          </label>
+          <label className="mt-5 block">
+            <span className="mb-2 block text-sm font-extrabold">
               Buscar alimento
             </span>
             <div className="flex items-center gap-3 rounded-2xl border border-[#e5d8cc] bg-[#fffaf3] px-4">
@@ -211,7 +230,7 @@ export default function FoodCalculator({
                       type="button"
                       disabled={!complete || items.length >= 50}
                       onClick={() => add(food)}
-                      aria-label={`Adicionar ${food.name}`}
+                      aria-label={`Adicionar ${food.name} · ${food.source || "TBCA"}`}
                       className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#eadfd5] p-3 text-left transition hover:border-[#ef4f78] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span className="min-w-0">
@@ -219,7 +238,7 @@ export default function FoodCalculator({
                           {food.name}
                         </strong>
                         <span className="mt-1 block text-[11px] text-[#8a776b]">
-                          {food.category} · {food.id}
+                          {food.source || "TBCA"} · {food.category} · {food.id}
                         </span>
                         <span className="mt-1 block text-xs text-[#78665b]">
                           {complete
@@ -259,7 +278,7 @@ export default function FoodCalculator({
                           {item.food.name}
                         </strong>
                         <span className="text-[11px] text-[#8a776b]">
-                          {item.food.id}
+                          {item.food.source || "TBCA"} · {item.food.id}
                         </span>
                       </div>
                       <button
@@ -277,11 +296,11 @@ export default function FoodCalculator({
                     </div>
                     <label className="mt-3 block">
                       <span className="mb-1.5 block text-xs font-bold">
-                      Peso (g)
+                        Peso (g)
                       </span>
                       <input
                         type="number"
-                      aria-label={`Peso (g) · ${item.food.name}`}
+                        aria-label={`Peso (g) · ${item.food.name}`}
                         name={`food_grams_${index}`}
                         required
                         min={0.01}
@@ -327,7 +346,8 @@ export default function FoodCalculator({
         </>
       )}
       <p className="mt-4 text-[11px] leading-relaxed text-[#8a776b]">
-        Porções da base: 100 g. Carboidratos totais. Fonte: TBCA, via{" "}
+        Valores por 100 g da parte comestível. Escolha a preparação
+        correspondente ao alimento pesado. Fontes: TBCA, via{" "}
         <a
           href="https://github.com/raul-rznd/web-scraping-tbca"
           target="_blank"
@@ -336,7 +356,17 @@ export default function FoodCalculator({
         >
           arquivo de raul-rznd
         </a>
-        . A busca e os cálculos acontecem neste aparelho.
+        , e IBGE, via{" "}
+        <a
+          href="https://github.com/renandspedrosa/tabela-taco-api"
+          target="_blank"
+          rel="noreferrer"
+          className="font-bold underline"
+        >
+          tabela-taco-api
+        </a>
+        . A busca e os cálculos acontecem neste aparelho. As bases podem
+        apresentar valores diferentes para alimentos semelhantes.
       </p>
     </section>
   )

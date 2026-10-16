@@ -63,7 +63,9 @@ export function validateRecipe(input, existingImage) {
       if (
         !item ||
         typeof item.foodId !== "string" ||
-        !/^[A-Z]\d{4}[A-Z]$/.test(item.foodId) ||
+        !/^(?:[A-Z]\d{4}[A-Z]|IBGE:\d{1,10}:(?:na|\d{1,3}))$/.test(
+          item.foodId,
+        ) ||
         typeof item.grams !== "number" ||
         !Number.isFinite(item.grams) ||
         item.grams <= 0 ||

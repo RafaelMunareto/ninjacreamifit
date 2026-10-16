@@ -16,6 +16,7 @@ export interface FoodReference {
 }
 
 export interface LocalFood {
+  source?: "TBCA" | "IBGE"
   id: string
   name: string
   category: string

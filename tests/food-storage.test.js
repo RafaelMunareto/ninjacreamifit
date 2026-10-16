@@ -18,6 +18,8 @@ test("alimentos e pesos sobrevivem à edição e reinicialização do servidor",
     const foodItems = [
       { foodId: "C0113T", grams: 150.5 },
       { foodId: "A0105N", grams: 25 },
+      { foodId: "IBGE:6300101:na", grams: 50 },
+      { foodId: "IBGE:6300701:2", grams: 100 },
     ]
     const input = {
       title: "Pote calculado",

@@ -20,10 +20,12 @@ let loading
 /** @returns {Promise<FoodCatalog>} */
 export function loadFoodCatalog() {
   if (!loading)
-    loading = fetch(`${import.meta.env.BASE_URL}data/tbca-foods-v1.json`, {
-      cache: "force-cache",
-    })
-      .then(async (response) => {
+    loading = Promise.all(
+      ["tbca", "ibge"].map(async (source) => {
+        const response = await fetch(
+          `${import.meta.env.BASE_URL}data/${source}-foods-v1.json`,
+          { cache: "force-cache" },
+        )
         if (!response.ok)
           throw new Error("A tabela de alimentos não está disponível.")
         const data = await response.json()
@@ -34,8 +36,15 @@ export function loadFoodCatalog() {
           !data.foods.length
         )
           throw new Error("Tabela de alimentos inválida.")
-        return createFoodCatalog(data.foods)
-      })
+        return data.foods.map(
+          /** @param {LocalFood} food */ (food) => ({
+            ...food,
+            source: data.source.name,
+          }),
+        )
+      }),
+    )
+      .then((sources) => createFoodCatalog(sources.flat()))
       .catch((error) => {
         loading = undefined
         throw error
@@ -45,13 +54,17 @@ export function loadFoodCatalog() {
 
 /** @param {LocalFood[]} foods @returns {FoodCatalog} */
 export function createFoodCatalog(foods) {
+  if (new Set(foods.map((food) => food.id)).size !== foods.length)
+    throw new Error("Códigos de alimentos repetidos.")
   return {
     foods,
     byId: new Map(foods.map((food) => [food.id, food])),
     index: foods.map((food) => ({
       food,
       name: normalize(food.name),
-      text: normalize(`${food.id} ${food.name} ${food.category}`),
+      text: normalize(
+        `${food.source || "TBCA"} ${food.id} ${food.name} ${food.category}`,
+      ),
     })),
   }
 }
@@ -63,13 +76,15 @@ export const hasCompleteNutrition = (food) =>
       typeof value === "number" && Number.isFinite(value) && value >= 0,
   )
 
-/** @param {FoodCatalog} catalog @param {string} query @param {number} [limit] */
-export function searchFoods(catalog, query, limit = 20) {
+/** @param {FoodCatalog} catalog @param {string} query @param {number} [limit] @param {string} [source] */
+export function searchFoods(catalog, query, limit = 20, source = "all") {
   const term = normalize(query)
   if (term.length < 2) return { foods: [], total: 0 }
   const words = term.split(/\s+/)
-  const matches = catalog.index.filter((entry) =>
-    words.every((word) => entry.text.includes(word)),
+  const matches = catalog.index.filter(
+    (entry) =>
+      (source === "all" || (entry.food.source || "TBCA") === source) &&
+      words.every((word) => entry.text.includes(word)),
   )
   matches.sort((a, b) => {
     const rank = /** @param {typeof a} item */ (item) =>
