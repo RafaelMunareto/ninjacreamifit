@@ -25,39 +25,51 @@ const UNKNOWN_FOOD_NAMES = new Set([
 ])
 
 async function analyzeWithGemini(imageData) {
-  const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite"
-  const endpoint = new URL(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-  )
-  endpoint.searchParams.set("key", process.env.GEMINI_API_KEY)
-  const upstream = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: 'Identifique o alimento principal na foto e, se estiver visível, a marca e a quantidade/volume indicados na embalagem. Responda somente JSON no formato {"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}. Use quantity null quando não for possível ler a quantidade. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
-            },
-            {
-              inline_data: {
-                mime_type: imageData.mimeType,
-                data: imageData.data,
+  const models = [
+    process.env.GEMINI_MODEL,
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+  ].filter((model, index, all) => model && all.indexOf(model) === index)
+  let lastError
+  for (const model of models) {
+    const endpoint = new URL(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    )
+    endpoint.searchParams.set("key", process.env.GEMINI_API_KEY)
+    const upstream = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: 'Identifique o alimento principal na foto e, se estiver visível, a marca e a quantidade/volume indicados na embalagem. Responda somente JSON no formato {"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}. Use quantity null quando não for possível ler a quantidade. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
               },
-            },
-          ],
-        },
-      ],
-      generationConfig: { responseMimeType: "application/json" },
-    }),
-  })
-  const data = await upstream.json()
-  if (!upstream.ok) throw new Error(data.error?.message || "Gemini error")
-  const content = data.candidates?.[0]?.content?.parts
-    ?.map((part) => part.text || "")
-    .join("")
-  return parseModelJson(content)
+              {
+                inline_data: {
+                  mime_type: imageData.mimeType,
+                  data: imageData.data,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: { responseMimeType: "application/json" },
+      }),
+    })
+    const data = await upstream.json()
+    if (upstream.ok) {
+      const content = data.candidates?.[0]?.content?.parts
+        ?.map((part) => part.text || "")
+        .join("")
+      return parseModelJson(content)
+    }
+    lastError = new Error(data.error?.message || `Gemini ${model} error`)
+    if (![404, 429, 500, 503].includes(upstream.status)) throw lastError
+  }
+  throw lastError || new Error("Gemini error")
 }
 
 export default async function handler(request, response) {
