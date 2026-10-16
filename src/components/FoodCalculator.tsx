@@ -58,6 +58,7 @@ export default function FoodCalculator({
   const [searchError, setSearchError] = useState("")
   const [scanning, setScanning] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const scanStreamRef = useRef<MediaStream | null>(null)
   const [error, setError] = useState("")
   const [restoreError, setRestoreError] = useState("")
   const [retry, setRetry] = useState(0)
@@ -170,39 +171,58 @@ export default function FoodCalculator({
         ) => Promise<Array<{ rawValue: string }>>
       }
     }).BarcodeDetector
-    if (!Detector) {
-      setSearchError(
-        "Este navegador não oferece leitura de código de barras. Digite o código no campo de busca.",
-      )
-      return
-    }
     setScanning(true)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
       })
+      scanStreamRef.current = stream
       if (!videoRef.current) return
       videoRef.current.srcObject = stream
       await videoRef.current.play()
-      const detector = new Detector({
-        formats: ["ean_13", "ean_8", "upc_a", "upc_e"],
-      })
-      for (let attempt = 0; attempt < 100; attempt++) {
-        const found = await detector.detect(videoRef.current)
-        if (found[0]?.rawValue) {
-          setQuery(found[0].rawValue)
-          break
+      if (Detector) {
+        const detector = new Detector({
+          formats: ["ean_13", "ean_8", "upc_a", "upc_e"],
+        })
+        for (
+          let attempt = 0;
+          attempt < 100 && scanStreamRef.current;
+          attempt++
+        ) {
+          const found = await detector.detect(videoRef.current)
+          if (found[0]?.rawValue) {
+            setQuery(found[0].rawValue)
+            break
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 100))
         }
-        await new Promise((resolve) => window.setTimeout(resolve, 100))
+      } else {
+        setSearchError(
+          "A câmera está aberta. Este navegador não decodifica o código automaticamente; digite o número abaixo.",
+        )
+        await new Promise<void>((resolve) => {
+          const timer = window.setInterval(() => {
+            if (!scanStreamRef.current) {
+              window.clearInterval(timer)
+              resolve()
+            }
+          }, 100)
+        })
       }
-      stream.getTracks().forEach((track) => track.stop())
     } catch {
       setSearchError(
         "Não foi possível acessar a câmera. Confira a permissão ou digite o código manualmente.",
       )
     } finally {
+      scanStreamRef.current?.getTracks().forEach((track) => track.stop())
+      scanStreamRef.current = null
       setScanning(false)
     }
+  }
+  const closeScanner = () => {
+    scanStreamRef.current?.getTracks().forEach((track) => track.stop())
+    scanStreamRef.current = null
+    setScanning(false)
   }
 
   return (
@@ -290,15 +310,27 @@ export default function FoodCalculator({
               </button>
             </div>
           </label>
-          {scanning && (
+          <div
+            className={`relative mt-3 overflow-hidden rounded-2xl bg-black ${
+              scanning ? "" : "hidden"
+            }`}
+          >
             <video
               ref={videoRef}
               muted
               playsInline
-              className="mt-3 w-full rounded-2xl bg-black"
+              className="aspect-video w-full object-cover"
               aria-label="Câmera para leitura do código de barras"
             />
-          )}
+            <div className="pointer-events-none absolute inset-x-[12%] top-1/2 h-20 -translate-y-1/2 rounded-xl border-2 border-[#b8e46c] shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
+            <button
+              type="button"
+              onClick={closeScanner}
+              className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-2 text-xs font-bold text-white"
+            >
+              Fechar câmera
+            </button>
+          </div>
           {query.trim().length < 2 && (
             <p className="mt-2 text-xs text-[#8a776b]">
               Digite pelo menos 2 letras. Você pode combinar palavras, como
