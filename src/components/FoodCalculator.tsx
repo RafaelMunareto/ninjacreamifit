@@ -38,6 +38,21 @@ type AiSuggestion = {
   matchedFood?: LocalFood
 }
 type Catalog = Awaited<ReturnType<typeof loadFoodCatalog>>
+type VoiceQuantity = { quantity: number; unit: "g" | "ml" }
+type SpeechRecognitionEventLike = Event & {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>
+}
+type SpeechRecognitionLike = {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: (() => void) | null
+  onend: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
 type Props = {
   initialItems: FoodReference[]
   initialLabels: string[]
@@ -81,11 +96,14 @@ export default function FoodCalculator({
   const [aiMessage, setAiMessage] = useState("")
   const [aiError, setAiError] = useState("")
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([])
+  const [listening, setListening] = useState(false)
+  const [voiceQuantity, setVoiceQuantity] = useState<VoiceQuantity | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const scanStreamRef = useRef<MediaStream | null>(null)
   const scannerControlsRef = useRef<IScannerControls | null>(null)
+  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const [error, setError] = useState("")
   const [restoreError, setRestoreError] = useState("")
   const [retry, setRetry] = useState(0)
@@ -183,10 +201,72 @@ export default function FoodCalculator({
       updated.length ? calculateNutrition(updated) : null,
     )
   }
+  const startVoiceInput = () => {
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor
+      webkitSpeechRecognition?: SpeechRecognitionConstructor
+    }
+    if (listening) {
+      speechRecognitionRef.current?.stop()
+      return
+    }
+    const Constructor =
+      speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
+    if (!Constructor) {
+      setSearchError(
+        "Seu navegador não oferece reconhecimento de voz. Use Chrome ou Safari atualizado.",
+      )
+      return
+    }
+    const recognition = new Constructor()
+    recognition.lang = "pt-BR"
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.onresult = (event) => {
+      const transcript = String(event.results[0]?.[0]?.transcript || "")
+        .trim()
+        .replace(/\s+/g, " ")
+      if (!transcript) return
+      const quantityMatch = transcript.match(
+        /(\d+(?:[,.]\d+)?)\s*(kg|quilo(?:s)?|g|grama(?:s)?|ml|mililitro(?:s)?)/i,
+      )
+      let spokenFood = transcript
+      if (quantityMatch) {
+        let quantity = Number(quantityMatch[1].replace(",", "."))
+        const rawUnit = quantityMatch[2].toLocaleLowerCase("pt-BR")
+        const unit = /ml|mililitro/.test(rawUnit) ? "ml" : "g"
+        if (unit === "g" && /kg|quilo/.test(rawUnit)) quantity *= 1000
+        if (quantity > 0 && quantity <= 10000)
+          setVoiceQuantity({ quantity, unit })
+        spokenFood = transcript.replace(quantityMatch[0], "").trim()
+      }
+      setQuery(spokenFood || transcript)
+      setLimit(20)
+      setSearchError("")
+      setAiMessage(
+        `Voz reconhecida: ${transcript}${quantityMatch ? " · quantidade detectada" : ""}`,
+      )
+    }
+    recognition.onerror = () => {
+      setListening(false)
+      setSearchError("Não consegui entender o áudio. Fale novamente em português.")
+    }
+    recognition.onend = () => {
+      setListening(false)
+      speechRecognitionRef.current = null
+    }
+    speechRecognitionRef.current = recognition
+    setSearchError("")
+    setAiMessage("Pode falar o alimento e a quantidade, por exemplo: banana 150 gramas.")
+    setListening(true)
+    recognition.start()
+  }
+
+  useEffect(() => () => speechRecognitionRef.current?.stop(), [])
   const add = (food: LocalFood, suggestion?: AiSuggestion) => {
     if (items.length >= 50 || !hasCompleteNutrition(food)) return
-    const quantity = suggestion?.quantity ?? 100
-    const unit = suggestion?.unit ?? "g"
+    const quantity = suggestion?.quantity ?? voiceQuantity?.quantity ?? 100
+    const unit = suggestion?.unit ?? voiceQuantity?.unit ?? "g"
     publish([
       ...items,
       { key: crypto.randomUUID(), food, grams: String(quantity), unit },
@@ -197,6 +277,7 @@ export default function FoodCalculator({
       )
     setQuery("")
     setLimit(20)
+    setVoiceQuantity(null)
   }
 
   const scanBarcode = async () => {
@@ -475,6 +556,18 @@ export default function FoodCalculator({
             </div>
           </label>
           <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={startVoiceInput}
+              aria-pressed={listening}
+              className={`rounded-full px-4 py-2.5 text-xs font-bold text-white transition ${
+                listening
+                  ? "animate-pulse bg-[#b92e53]"
+                  : "bg-[#52642f] hover:bg-[#435326]"
+              }`}
+            >
+              {listening ? "Ouvindo… toque para parar" : "🎙️ Falar alimento"}
+            </button>
             <button
               type="button"
               onClick={() => void scanBarcode()}
