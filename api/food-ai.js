@@ -90,7 +90,9 @@ async function analyzeWithGemini(imageData) {
     }
     lastError = new Error(data.error?.message || `Gemini ${model} error`)
     failures.push(`${model}: ${lastError.message}`)
-    if (![404, 429, 500, 503].includes(upstream.status)) throw lastError
+    // A variável pode apontar para um modelo de áudio/texto sem suporte a imagens.
+    // Nesse caso, continue para o próximo modelo visual compatível.
+    if (![400, 404, 429, 500, 503].includes(upstream.status)) throw lastError
   }
   throw new Error(failures.join(" | ") || lastError?.message || "Gemini error")
 }
