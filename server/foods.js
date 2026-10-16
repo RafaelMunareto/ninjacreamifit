@@ -85,17 +85,31 @@ export function createFoodHandler(load = getCatalog) {
 }
 
 async function searchOpenFoodFacts(query, limit, barcode = "") {
-  const endpoint = new URL("https://world.openfoodfacts.org/api/v2/search")
-  endpoint.searchParams.set("search_terms", barcode || query)
-  endpoint.searchParams.set("page_size", String(Math.min(limit, 40)))
-  endpoint.searchParams.set("fields", "code,product_name,categories,nutriments")
+  const endpoint = barcode
+    ? new URL(
+        `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`,
+      )
+    : new URL("https://world.openfoodfacts.org/api/v2/search")
+  if (!barcode) {
+    endpoint.searchParams.set("search_terms", query)
+    endpoint.searchParams.set("page_size", String(Math.min(limit, 40)))
+    endpoint.searchParams.set(
+      "fields",
+      "code,product_name,categories,nutriments",
+    )
+  }
   const response = await fetch(endpoint, {
     headers: { "User-Agent": "NinjaCreamiFit/1.0 (nutrition search)" },
     signal: AbortSignal.timeout(5000),
   })
   if (!response.ok) throw new Error(`Open Food Facts ${response.status}`)
   const data = await response.json()
-  const foods = (Array.isArray(data.products) ? data.products : [])
+  const products = barcode
+    ? data.status === 1 && data.product
+      ? [data.product]
+      : []
+    : data.products
+  const foods = (Array.isArray(products) ? products : [])
     .map((product) => {
       const nutrition = product.nutriments || {}
       const food = {
