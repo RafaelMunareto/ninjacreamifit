@@ -344,13 +344,15 @@ export default function App() {
             >
               <Icon name="plus" size={18} /> Enviar receita
             </button>
-            <button
-              onClick={openProfile}
-              className="grid size-11 place-items-center rounded-full border border-[#e8dbcf] bg-white"
-              aria-label="Abrir perfil"
-            >
-              <Icon name="user" size={19} />
-            </button>
+            <Show when="signed-out">
+              <button
+                onClick={openProfile}
+                className="grid size-11 place-items-center rounded-full border border-[#e8dbcf] bg-white"
+                aria-label="Abrir perfil"
+              >
+                <Icon name="user" size={19} />
+              </button>
+            </Show>
             <Show when="signed-out">
               <SignInButton mode="modal">
                 <button className="rounded-full border border-[#e8dbcf] bg-white px-4 py-2 text-sm font-extrabold">

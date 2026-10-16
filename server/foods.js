@@ -157,7 +157,7 @@ async function searchFatSecret(query, barcode, limit) {
       body: new URLSearchParams({
         grant_type: "client_credentials",
         // FatSecret grants barcode and text search through different scopes.
-        scope: barcode ? "basic barcode" : "basic premier",
+        scope: barcode ? "basic barcode" : "basic",
       }),
       signal: AbortSignal.timeout(5000),
     },
@@ -230,20 +230,33 @@ async function searchFatSecret(query, barcode, limit) {
 }
 
 async function searchAllSources(catalog, query, barcode, limit) {
+  const perSourceLimit = Math.max(1, Math.ceil(limit / 3))
   const [local, openFoodFacts, fatSecret] = await Promise.all([
     Promise.resolve(
-      barcode ? { foods: [], total: 0 } : searchFoods(catalog, query, limit),
+      barcode
+        ? { foods: [], total: 0 }
+        : searchFoods(catalog, query, perSourceLimit),
     ),
-    searchOpenFoodFacts(query, limit, barcode).catch(() => ({
+    searchOpenFoodFacts(query, perSourceLimit, barcode).catch(() => ({
       foods: [],
       total: 0,
     })),
-    searchFatSecret(query, barcode, limit).catch(() => ({
+    searchFatSecret(query, barcode, perSourceLimit).catch(() => ({
       foods: [],
       total: 0,
     })),
   ])
-  const foods = [...local.foods, ...openFoodFacts.foods, ...fatSecret.foods]
+  const foods = []
+  const max = Math.max(
+    local.foods.length,
+    openFoodFacts.foods.length,
+    fatSecret.foods.length,
+  )
+  for (let index = 0; index < max; index++) {
+    for (const source of [local, openFoodFacts, fatSecret]) {
+      if (source.foods[index]) foods.push(source.foods[index])
+    }
+  }
   return {
     foods: foods.slice(0, limit),
     total: foods.length,
