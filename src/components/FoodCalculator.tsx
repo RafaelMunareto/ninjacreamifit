@@ -97,7 +97,6 @@ export default function FoodCalculator({
   const [aiError, setAiError] = useState("")
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([])
   const [listening, setListening] = useState(false)
-  const [voiceQuantity, setVoiceQuantity] = useState<VoiceQuantity | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -201,6 +200,65 @@ export default function FoodCalculator({
       updated.length ? calculateNutrition(updated) : null,
     )
   }
+  const suggestVoiceFood = async (transcript: string) => {
+    let spokenFood = transcript
+    let detectedQuantity: VoiceQuantity | undefined
+    const quantityMatch = transcript.match(
+      /(\d+(?:[,.]\d+)?)\s*(kg|quilo(?:s)?|g|grama(?:s)?|ml|mililitro(?:s)?)/i,
+    )
+    if (quantityMatch) {
+      let quantity = Number(quantityMatch[1].replace(",", "."))
+      const rawUnit = quantityMatch[2].toLocaleLowerCase("pt-BR")
+      const unit = /ml|mililitro/.test(rawUnit) ? "ml" : "g"
+      if (unit === "g" && /kg|quilo/.test(rawUnit)) quantity *= 1000
+      if (quantity > 0 && quantity <= 10000)
+        detectedQuantity = { quantity, unit }
+      spokenFood = transcript.replace(quantityMatch[0], "").trim()
+    }
+    spokenFood = spokenFood
+      .replace(
+        /^(?:adicione|adicionar|registrar|registre|coloque|incluir)\s+/i,
+        "",
+      )
+      .trim()
+    if (spokenFood.length < 2) {
+      setSearchError("Diga o nome do alimento, por exemplo: banana 150 gramas.")
+      return
+    }
+    const suggestion: AiSuggestion = {
+      food: spokenFood,
+      brand: "",
+      ...(detectedQuantity || {}),
+    }
+    setAiSuggestions([suggestion])
+    setAiMessage(
+      `Sugestão por voz: ${spokenFood}${detectedQuantity ? ` · ${detectedQuantity.quantity} ${detectedQuantity.unit}` : ""}`,
+    )
+    if (!catalog) return
+    try {
+      const localMatch = searchFoods(catalog, spokenFood, 5, source).foods.find(
+        hasCompleteNutrition,
+      )
+      const match =
+        localMatch ||
+        (
+          await searchFoodsWithFallback(
+            catalog,
+            spokenFood,
+            5,
+            source,
+            (term, count) => searchFoodApi(term, count),
+          )
+        ).foods.find(hasCompleteNutrition)
+      setAiSuggestions((current) =>
+        current.map((item) => ({ ...item, matchedFood: match })),
+      )
+    } catch {
+      setSearchError(
+        "Reconheci o alimento, mas não consegui buscar os nutrientes agora. Tente novamente.",
+      )
+    }
+  }
   const startVoiceInput = () => {
     const speechWindow = window as Window & {
       SpeechRecognition?: SpeechRecognitionConstructor
@@ -227,29 +285,8 @@ export default function FoodCalculator({
         .trim()
         .replace(/\s+/g, " ")
       if (!transcript) return
-      const quantityMatch = transcript.match(
-        /(\d+(?:[,.]\d+)?)\s*(kg|quilo(?:s)?|g|grama(?:s)?|ml|mililitro(?:s)?)/i,
-      )
-      let spokenFood = transcript
-      if (quantityMatch) {
-        let quantity = Number(quantityMatch[1].replace(",", "."))
-        const rawUnit = quantityMatch[2].toLocaleLowerCase("pt-BR")
-        const unit = /ml|mililitro/.test(rawUnit) ? "ml" : "g"
-        if (unit === "g" && /kg|quilo/.test(rawUnit)) quantity *= 1000
-        if (quantity > 0 && quantity <= 10000)
-          setVoiceQuantity({ quantity, unit })
-        spokenFood = transcript.replace(quantityMatch[0], "").trim()
-      }
-      spokenFood = spokenFood.replace(
-        /^(?:adicione|adicionar|registrar|registre|coloque|incluir)\s+/i,
-        "",
-      )
-      setQuery(spokenFood || transcript)
-      setLimit(20)
       setSearchError("")
-      setAiMessage(
-        `Voz reconhecida: ${transcript}${quantityMatch ? " · quantidade detectada" : ""}`,
-      )
+      void suggestVoiceFood(transcript)
     }
     recognition.onerror = () => {
       setListening(false)
@@ -269,8 +306,8 @@ export default function FoodCalculator({
   useEffect(() => () => speechRecognitionRef.current?.stop(), [])
   const add = (food: LocalFood, suggestion?: AiSuggestion) => {
     if (items.length >= 50 || !hasCompleteNutrition(food)) return
-    const quantity = suggestion?.quantity ?? voiceQuantity?.quantity ?? 100
-    const unit = suggestion?.unit ?? voiceQuantity?.unit ?? "g"
+    const quantity = suggestion?.quantity ?? 100
+    const unit = suggestion?.unit ?? "g"
     publish([
       ...items,
       { key: crypto.randomUUID(), food, grams: String(quantity), unit },
@@ -281,7 +318,6 @@ export default function FoodCalculator({
       )
     setQuery("")
     setLimit(20)
-    setVoiceQuantity(null)
   }
 
   const scanBarcode = async () => {
