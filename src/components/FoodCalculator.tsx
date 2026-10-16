@@ -5,7 +5,11 @@ import {
   useState,
   type ChangeEvent,
 } from "react"
-import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser"
+import {
+  BarcodeFormat,
+  BrowserMultiFormatReader,
+  type IScannerControls,
+} from "@zxing/browser"
 import type { FoodReference, LocalFood, Nutrition } from "../types"
 import {
   calculateNutrition,
@@ -184,9 +188,34 @@ export default function FoodCalculator({
     setSearchError("")
     setScanning(true)
     try {
-      const reader = new BrowserMultiFormatReader()
-      scannerControlsRef.current = await reader.decodeFromVideoDevice(
-        undefined,
+      const hints = new Map<number, unknown>([
+        [3, true],
+        [
+          2,
+          [
+            BarcodeFormat.EAN_13,
+            BarcodeFormat.EAN_8,
+            BarcodeFormat.UPC_A,
+            BarcodeFormat.UPC_E,
+            BarcodeFormat.CODE_128,
+            BarcodeFormat.CODE_39,
+            BarcodeFormat.ITF,
+          ],
+        ],
+      ]) as never
+      const reader = new BrowserMultiFormatReader(hints, {
+        delayBetweenScanAttempts: 100,
+        delayBetweenScanSuccess: 500,
+      })
+      scannerControlsRef.current = await reader.decodeFromConstraints(
+        {
+          audio: false,
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        },
         video,
         (result, _error, controls) => {
           const value = result?.getText().trim()
