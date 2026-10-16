@@ -105,7 +105,8 @@ async function analyzeWithHuggingFace(imageData) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.HF_MODEL || "Qwen/Qwen2.5-VL-3B-Instruct",
+        model:
+          process.env.HF_MODEL || "Qwen/Qwen2.5-VL-3B-Instruct:featherless-ai",
         temperature: 0.1,
         max_tokens: 500,
         messages: [
