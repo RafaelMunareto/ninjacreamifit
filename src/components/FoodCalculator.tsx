@@ -432,9 +432,18 @@ export default function FoodCalculator({
               type="button"
               onClick={() => aiPhotoRef.current?.click()}
               disabled={identifyingPhoto}
+              aria-busy={identifyingPhoto}
               className="rounded-full border border-[#9b7de1] bg-[#b79af6] px-4 py-2.5 text-xs font-extrabold text-[#342820] transition hover:bg-[#a688eb] disabled:cursor-wait disabled:opacity-60"
             >
-              {identifyingPhoto ? "Identificando…" : "Foto (IA)"}
+              <span className="inline-flex items-center gap-2">
+                {identifyingPhoto && (
+                  <span
+                    className="size-3.5 animate-spin rounded-full border-2 border-[#342820]/30 border-t-[#342820]"
+                    aria-hidden="true"
+                  />
+                )}
+                {identifyingPhoto ? "Analisando foto…" : "Foto (IA)"}
+              </span>
             </button>
             <input
               ref={aiPhotoRef}
@@ -467,6 +476,31 @@ export default function FoodCalculator({
               Fechar câmera
             </button>
           </div>
+          {identifyingPhoto && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-3 overflow-hidden rounded-2xl border border-[#d9cdf8] bg-[#faf7ff]"
+            >
+              <div className="h-1 w-full animate-pulse bg-[#b79af6]" />
+              <div className="flex items-center gap-3 p-4">
+                <span
+                  className="grid size-9 shrink-0 place-items-center rounded-full bg-[#e9e0ff] text-[#6950a8]"
+                  aria-hidden="true"
+                >
+                  <span className="size-4 animate-spin rounded-full border-2 border-[#6950a8]/30 border-t-[#6950a8]" />
+                </span>
+                <span>
+                  <strong className="block text-sm text-[#342820]">
+                    Analisando sua foto
+                  </strong>
+                  <span className="mt-0.5 block text-xs text-[#78665b]">
+                    Procurando alimento, marca e quantidade…
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
           {query.trim().length >= 2 && (
             <p role="status" className="mt-3 text-xs text-[#8a776b]">
               {searching
