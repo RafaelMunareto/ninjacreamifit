@@ -583,144 +583,146 @@ export default function FoodCalculator({
               </span>
             </div>
           )}
-          {!!results.foods.length && (
-            <ul
-              aria-label="Resultados de alimentos"
-              className="mt-3 max-h-80 space-y-2 overflow-y-auto overscroll-contain"
-            >
-              {results.foods.map((food) => {
-                const complete = hasCompleteNutrition(food)
-                return (
-                  <li key={food.id}>
-                    <button
-                      type="button"
-                      disabled={!complete || items.length >= 50}
-                      onClick={() => add(food)}
-                      aria-label={`Adicionar ${food.name} · ${food.source || "TBCA"}`}
-                      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#eadfd5] p-3 text-left transition hover:border-[#ef4f78] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <span className="min-w-0">
-                        <strong className="block break-words text-sm">
-                          {food.name}
-                        </strong>
-                        <span className="mt-1 block text-xs text-[#78665b]">
-                          {complete
-                            ? `Por 100 g: ${display(food.calories)} kcal · P ${display(food.protein)} g · C ${display(food.carbs)} g · G ${display(food.fat)} g`
-                            : "Dados incompletos na base · preencha manualmente"}
-                        </span>
-                      </span>
-                      {complete && (
-                        <span className="shrink-0 text-[#ef4f78]">
-                          <Icon name="plus" />
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-          {!!aiSuggestions.length && (
-            <div className="mt-4 rounded-2xl border border-[#cfc0f5] bg-[#faf7ff] p-4">
-              <p className="text-xs font-extrabold uppercase tracking-wide text-[#6950a8]">
-                Sugestões da IA — confirme antes de adicionar
-              </p>
-              <div className="mt-3 space-y-3">
-                {aiSuggestions.map((aiSuggestion) => (
-                  <div
-                    key={aiSuggestion.food}
-                    className="rounded-xl bg-white p-3"
-                  >
-                    <p className="text-sm font-black">{aiSuggestion.food}</p>
-                    <p className="mt-1 text-xs text-[#78665b]">
-                      {aiSuggestion.brand
-                        ? `Marca: ${aiSuggestion.brand}`
-                        : "Marca não identificada"}
-                    </p>
-                    <div className="mt-3 grid max-w-xs grid-cols-[minmax(0,1fr)_auto] gap-2">
-                      <label>
-                        <span className="mb-1 block text-xs font-bold">
-                          Quantidade
-                        </span>
-                        <input
-                          type="number"
-                          min={0.01}
-                          max={10000}
-                          step="any"
-                          value={aiSuggestion.quantity ?? ""}
-                          onChange={(event) =>
-                            setAiSuggestions((current) =>
-                              current.map((item) =>
-                                item.food === aiSuggestion.food
-                                  ? {
-                                      ...item,
-                                      quantity: event.target.value
-                                        ? Number(event.target.value)
-                                        : undefined,
-                                    }
-                                  : item,
-                              ),
-                            )
-                          }
-                          className="form-input bg-white"
-                        />
-                      </label>
-                      <label>
-                        <span className="mb-1 block text-xs font-bold">
-                          Unidade
-                        </span>
-                        <select
-                          value={aiSuggestion.unit ?? "g"}
-                          onChange={(event) =>
-                            setAiSuggestions((current) =>
-                              current.map((item) =>
-                                item.food === aiSuggestion.food
-                                  ? {
-                                      ...item,
-                                      unit:
-                                        event.target.value === "ml"
-                                          ? "ml"
-                                          : "g",
-                                    }
-                                  : item,
-                              ),
-                            )
-                          }
-                          className="form-input bg-white"
-                        >
-                          <option value="g">g</option>
-                          <option value="ml">ml</option>
-                        </select>
-                      </label>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => acceptAiSuggestion(aiSuggestion)}
-                      disabled={
-                        items.length >= 50 ||
-                        !aiSuggestion.matchedFood ||
-                        !aiSuggestion.quantity
-                      }
-                      className="mt-3 rounded-lg bg-[#6950a8] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {!aiSuggestion.quantity
-                        ? "Informe a quantidade"
-                        : aiSuggestion.matchedFood
-                          ? "Aceitar e adicionar"
-                          : "Buscando dados…"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={rejectAiSuggestion}
-                className="mt-3 rounded-lg border border-[#cfc0f5] px-3 py-2 text-xs font-bold text-[#6950a8]"
+          <div className="flex flex-col">
+            {!!results.foods.length && (
+              <ul
+                aria-label="Resultados de alimentos"
+                className="order-2 mt-3 max-h-80 space-y-2 overflow-y-auto overscroll-contain"
               >
-                Recusar todas
-              </button>
-            </div>
-          )}
+                {results.foods.map((food) => {
+                  const complete = hasCompleteNutrition(food)
+                  return (
+                    <li key={food.id}>
+                      <button
+                        type="button"
+                        disabled={!complete || items.length >= 50}
+                        onClick={() => add(food)}
+                        aria-label={`Adicionar ${food.name} · ${food.source || "TBCA"}`}
+                        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#eadfd5] p-3 text-left transition hover:border-[#ef4f78] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <span className="min-w-0">
+                          <strong className="block break-words text-sm">
+                            {food.name}
+                          </strong>
+                          <span className="mt-1 block text-xs text-[#78665b]">
+                            {complete
+                              ? `Por 100 g: ${display(food.calories)} kcal · P ${display(food.protein)} g · C ${display(food.carbs)} g · G ${display(food.fat)} g`
+                              : "Dados incompletos na base · preencha manualmente"}
+                          </span>
+                        </span>
+                        {complete && (
+                          <span className="shrink-0 text-[#ef4f78]">
+                            <Icon name="plus" />
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            {!!aiSuggestions.length && (
+              <div className="order-1 mt-4 rounded-2xl border border-[#cfc0f5] bg-[#faf7ff] p-4">
+                <p className="text-xs font-extrabold uppercase tracking-wide text-[#6950a8]">
+                  Sugestões da IA — confirme antes de adicionar
+                </p>
+                <div className="mt-3 space-y-3">
+                  {aiSuggestions.map((aiSuggestion) => (
+                    <div
+                      key={aiSuggestion.food}
+                      className="rounded-xl bg-white p-3"
+                    >
+                      <p className="text-sm font-black">{aiSuggestion.food}</p>
+                      <p className="mt-1 text-xs text-[#78665b]">
+                        {aiSuggestion.brand
+                          ? `Marca: ${aiSuggestion.brand}`
+                          : "Marca não identificada"}
+                      </p>
+                      <div className="mt-3 grid max-w-xs grid-cols-[minmax(0,1fr)_auto] gap-2">
+                        <label>
+                          <span className="mb-1 block text-xs font-bold">
+                            Quantidade
+                          </span>
+                          <input
+                            type="number"
+                            min={0.01}
+                            max={10000}
+                            step="any"
+                            value={aiSuggestion.quantity ?? ""}
+                            onChange={(event) =>
+                              setAiSuggestions((current) =>
+                                current.map((item) =>
+                                  item.food === aiSuggestion.food
+                                    ? {
+                                        ...item,
+                                        quantity: event.target.value
+                                          ? Number(event.target.value)
+                                          : undefined,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className="form-input bg-white"
+                          />
+                        </label>
+                        <label>
+                          <span className="mb-1 block text-xs font-bold">
+                            Unidade
+                          </span>
+                          <select
+                            value={aiSuggestion.unit ?? "g"}
+                            onChange={(event) =>
+                              setAiSuggestions((current) =>
+                                current.map((item) =>
+                                  item.food === aiSuggestion.food
+                                    ? {
+                                        ...item,
+                                        unit:
+                                          event.target.value === "ml"
+                                            ? "ml"
+                                            : "g",
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className="form-input bg-white"
+                          >
+                            <option value="g">g</option>
+                            <option value="ml">ml</option>
+                          </select>
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => acceptAiSuggestion(aiSuggestion)}
+                        disabled={
+                          items.length >= 50 ||
+                          !aiSuggestion.matchedFood ||
+                          !aiSuggestion.quantity
+                        }
+                        className="mt-3 rounded-lg bg-[#6950a8] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {!aiSuggestion.quantity
+                          ? "Informe a quantidade"
+                          : aiSuggestion.matchedFood
+                            ? "Aceitar e adicionar"
+                            : "Buscando dados…"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={rejectAiSuggestion}
+                  className="mt-3 rounded-lg border border-[#cfc0f5] px-3 py-2 text-xs font-bold text-[#6950a8]"
+                >
+                  Recusar todas
+                </button>
+              </div>
+            )}
+          </div>
           {results.total > limit && (
             <button
               type="button"
