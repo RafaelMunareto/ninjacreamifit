@@ -13,6 +13,7 @@ export type NutrientKey = keyof Nutrition
 export interface FoodReference {
   foodId: string
   grams: number
+  unit?: "g" | "ml"
 }
 
 export interface LocalFood {

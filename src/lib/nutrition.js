@@ -2,7 +2,7 @@
 /** @typedef {import("../types").LocalFood} LocalFood */
 /** @typedef {import("../types").FoodReference} FoodReference */
 /** @typedef {import("../types").Nutrition} Nutrition */
-/** @typedef {{food: LocalFood, grams: string}} FoodLine */
+/** @typedef {{food: LocalFood, grams: string, unit?: "g" | "ml"}} FoodLine */
 /** @typedef {{foods: LocalFood[], byId: Map<string, LocalFood>, index: {food: LocalFood, text: string, name: string}[]}} FoodCatalog */
 
 /** @param {string} value */
@@ -131,10 +131,19 @@ export function calculateNutrition(items) {
 
 /** @param {FoodLine[]} items @returns {FoodReference[]} */
 export const foodReferences = (items) =>
-  items.map((item) => ({ foodId: item.food.id, grams: Number(item.grams) }))
+  items.map((item) => ({
+    foodId: item.food.id,
+    grams: Number(item.grams),
+    ...(item.unit === "ml" ? { unit: "ml" } : {}),
+  }))
 /** @param {FoodLine[]} items */
 export const foodDescriptions = (items) =>
-  items.map((item) => `${item.grams.replace(".", ",")} g de ${item.food.name}`)
+  items.map(
+    (item) =>
+      `${item.grams.replace(".", ",")} ${
+        item.unit === "ml" ? "ml" : "g"
+      } de ${item.food.name}`,
+  )
 
 /** @typedef {{foods: LocalFood[], total: number, source: string, fallback: boolean}} FoodResults */
 /** @param {string} query @param {number} limit @param {AbortSignal} [signal] */

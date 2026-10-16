@@ -23,6 +23,7 @@ type FoodLine = {
   key: string
   food: LocalFood
   grams: string
+  unit: "g" | "ml"
 }
 type Catalog = Awaited<ReturnType<typeof loadFoodCatalog>>
 type Props = {
@@ -103,6 +104,7 @@ export default function FoodCalculator({
             key: crypto.randomUUID(),
             food,
             grams: String(reference.grams),
+            unit: reference.unit === "ml" ? "ml" : "g",
           })
         }
         setItems(restored)
@@ -168,7 +170,10 @@ export default function FoodCalculator({
   }
   const add = (food: LocalFood) => {
     if (items.length >= 50 || !hasCompleteNutrition(food)) return
-    publish([...items, { key: crypto.randomUUID(), food, grams: "100" }])
+    publish([
+      ...items,
+      { key: crypto.randomUUID(), food, grams: "100", unit: "g" },
+    ])
     setQuery("")
     setLimit(20)
   }
@@ -462,31 +467,61 @@ export default function FoodCalculator({
                         <Icon name="close" size={16} />
                       </button>
                     </div>
-                    <label className="mt-3 block">
-                      <span className="mb-1.5 block text-xs font-bold">
-                        Peso (g)
-                      </span>
-                      <input
-                        type="number"
-                        aria-label={`Peso (g) · ${item.food.name}`}
-                        name={`food_grams_${index}`}
-                        required
-                        min={0.01}
-                        max={10000}
-                        step="any"
-                        value={item.grams}
-                        onChange={(event) =>
-                          publish(
-                            items.map((row, position) =>
-                              position === index
-                                ? { ...row, grams: event.target.value }
-                                : row,
-                            ),
-                          )
-                        }
-                        className="form-input bg-white"
-                      />
-                    </label>
+                    <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-bold">
+                          Quantidade ({item.unit})
+                        </span>
+                        <input
+                          type="number"
+                          aria-label={`Quantidade (${item.unit}) · ${item.food.name}`}
+                          name={`food_grams_${index}`}
+                          required
+                          min={0.01}
+                          max={10000}
+                          step="any"
+                          value={item.grams}
+                          onChange={(event) =>
+                            publish(
+                              items.map((row, position) =>
+                                position === index
+                                  ? { ...row, grams: event.target.value }
+                                  : row,
+                              ),
+                            )
+                          }
+                          className="form-input bg-white"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-bold">
+                          Unidade
+                        </span>
+                        <select
+                          aria-label={`Unidade da quantidade · ${item.food.name}`}
+                          value={item.unit}
+                          onChange={(event) =>
+                            publish(
+                              items.map((row, position) =>
+                                position === index
+                                  ? {
+                                      ...row,
+                                      unit:
+                                        event.target.value === "ml"
+                                          ? "ml"
+                                          : "g",
+                                    }
+                                  : row,
+                              ),
+                            )
+                          }
+                          className="form-input bg-white"
+                        >
+                          <option value="g">g</option>
+                          <option value="ml">ml</option>
+                        </select>
+                      </label>
+                    </div>
                     {nutrition && (
                       <p className="mt-2 text-xs leading-relaxed text-[#78665b]">
                         {display(nutrition.calories)} kcal · P{" "}

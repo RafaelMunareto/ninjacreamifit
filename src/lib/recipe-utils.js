@@ -74,7 +74,11 @@ export function validateRecipe(input, existingImage) {
         throw new Error(
           "Informe uma quantidade válida para cada alimento selecionado.",
         )
-      return { foodId: item.foodId, grams: item.grams }
+      return {
+        foodId: item.foodId,
+        grams: item.grams,
+        ...(item.unit === "ml" ? { unit: /** @type {"ml"} */ ("ml") } : {}),
+      }
     })
   }
   return {

@@ -38,6 +38,7 @@ const SCHEMA = `
     recipeId TEXT NOT NULL REFERENCES recipes(id), position INTEGER NOT NULL,
     foodId TEXT NOT NULL,
     grams REAL NOT NULL CHECK (grams > 0 AND grams <= 10000),
+    unit TEXT NOT NULL DEFAULT 'g' CHECK (unit IN ('g', 'ml')),
     PRIMARY KEY (recipeId, position)
   );
   CREATE TABLE foodRecipes (
@@ -166,12 +167,13 @@ export async function encodeSqlite(state) {
       insertRows(
         database,
         "foodItems",
-        ["recipeId", "position", "foodId", "grams"],
+        ["recipeId", "position", "foodId", "grams", "unit"],
         recipe.foodItems.map((item, position) => [
           recipe.id,
           position,
           item.foodId,
           item.grams,
+          item.unit === "ml" ? "ml" : "g",
         ]),
       )
     }
@@ -263,11 +265,17 @@ export async function decodeSqlite(bytes) {
       const byRecipe = new Map(recipes.map((recipe) => [recipe.id, recipe]))
       for (const row of select(database, "SELECT recipeId FROM foodRecipes"))
         byRecipe.get(row.recipeId).foodItems = []
-      for (const row of select(
+      const foodColumns = select(database, "PRAGMA table_info(foodItems)")
+      const hasUnit = foodColumns.some((column) => column.name === "unit")
+      const foodRows = select(
         database,
-        "SELECT recipeId, foodId, grams FROM foodItems ORDER BY position",
-      )) {
+        `SELECT recipeId, foodId, grams${
+          hasUnit ? ", unit" : ""
+        } FROM foodItems ORDER BY position`,
+      )
+      for (const row of foodRows) {
         const { recipeId, ...item } = row
+        if (item.unit !== "ml") delete item.unit
         byRecipe.get(recipeId).foodItems.push(item)
       }
     }
