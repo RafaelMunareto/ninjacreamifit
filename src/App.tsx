@@ -361,6 +361,12 @@ export default function App() {
               </SignInButton>
             </Show>
             <Show when="signed-in">
+              <button
+                onClick={openProfile}
+                className="text-sm font-extrabold transition hover:text-[#ef4f78]"
+              >
+                Meu perfil
+              </button>
               <UserButton />
             </Show>
           </div>
