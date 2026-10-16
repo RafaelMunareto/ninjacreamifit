@@ -8,6 +8,7 @@ import {
 import { createHash, randomUUID } from "node:crypto"
 import { mkdir, readFile, writeFile, rename, unlink } from "node:fs/promises"
 import { join } from "node:path"
+import { encodeSqlite, decodeCatalog, isSqlite } from "./sqlite.js"
 
 export class ConflictError extends Error {}
 
@@ -24,6 +25,9 @@ export function createBlobStorage(environment = process.env) {
   if (!/^[a-z0-9-]{1,50}$/i.test(dataset))
     throw new Error("Identificador de armazenamento inválido.")
   const prefix = `creami/${dataset}/`
+  const sqlitePath = `${prefix}catalog.sqlite`
+  const legacyPath = `${prefix}catalog.json`
+  let catalogPath
   const options = {
     access: "private",
     ...(environment.BLOB_READ_WRITE_TOKEN
@@ -32,27 +36,70 @@ export function createBlobStorage(environment = process.env) {
   }
   return {
     async read() {
-      const result = await get(`${prefix}catalog.json`, {
+      const readOptions = {
         ...options,
         useCache: false,
         // Compressed responses carry a weak ETag, which cannot guard a write.
         headers: { "accept-encoding": "identity" },
-      })
+      }
+      let path = catalogPath || sqlitePath
+      let result = await get(path, readOptions)
+      if (!result && !catalogPath) {
+        path = legacyPath
+        result = await get(path, readOptions)
+      }
       if (!result) return { state: null, etag: null }
+      catalogPath = path
+      const bytes = new Uint8Array(
+        await new Response(result.stream).arrayBuffer(),
+      )
       return {
-        state: await new Response(result.stream).json(),
-        etag: result.blob.etag,
+        state: await decodeCatalog(bytes),
+        etag: {
+          value: result.blob.etag,
+          path,
+          legacy: !isSqlite(bytes) ? bytes : null,
+        },
       }
     },
     async write(state, etag) {
+      const bytes = await encodeSqlite(state)
+      // Keep an existing object's key and conditional-write guard during the
+      // format migration so in-flight requests cannot overwrite newer data.
+      const path = etag?.path || sqlitePath
+      if (etag?.legacy) {
+        const fingerprint = createHash("sha256")
+          .update(etag.legacy)
+          .digest("hex")
+        try {
+          await put(
+            `${prefix}backups/before-sqlite-${fingerprint}.json`,
+            etag.legacy,
+            {
+              ...options,
+              contentType: "application/json",
+              addRandomSuffix: false,
+            },
+          )
+        } catch (error) {
+          if (
+            !(
+              error instanceof BlobError &&
+              error.message.startsWith("Vercel Blob: This blob already exists")
+            )
+          )
+            throw error
+        }
+      }
       try {
-        await put(`${prefix}catalog.json`, JSON.stringify(state), {
+        await put(path, bytes, {
           ...options,
-          contentType: "application/json",
+          contentType: "application/vnd.sqlite3",
           addRandomSuffix: false,
           allowOverwrite: Boolean(etag),
-          ...(etag ? { ifMatch: etag } : {}),
+          ...(etag ? { ifMatch: etag.value } : {}),
         })
+        catalogPath = path
       } catch (error) {
         if (
           error instanceof BlobPreconditionFailedError ||
@@ -82,15 +129,19 @@ export function createBlobStorage(environment = process.env) {
   }
 }
 
-// Used only by Vite development and integration tests. Production always uses Blob.
+// Vite development and integration tests use a SQLite file on the local server.
 export function createFileStorage(directory) {
-  const filename = join(directory, "catalog.json")
+  const filename = join(directory, "catalog.sqlite")
+  const legacyFilename = join(directory, "catalog.json")
   let writes = Promise.resolve()
   const read = async () => {
     try {
-      const source = await readFile(filename, "utf8")
+      const source = await readFile(filename).catch((error) => {
+        if (error.code !== "ENOENT") throw error
+        return readFile(legacyFilename)
+      })
       return {
-        state: JSON.parse(source),
+        state: await decodeCatalog(source),
         etag: createHash("sha256").update(source).digest("hex"),
       }
     } catch (error) {
@@ -108,7 +159,7 @@ export function createFileStorage(directory) {
           if (current.etag !== etag) throw new ConflictError()
           await mkdir(directory, { recursive: true })
           const temporary = `${filename}.${randomUUID()}.tmp`
-          await writeFile(temporary, JSON.stringify(state), { mode: 0o600 })
+          await writeFile(temporary, await encodeSqlite(state), { mode: 0o600 })
           await rename(temporary, filename)
         })
       writes = operation
