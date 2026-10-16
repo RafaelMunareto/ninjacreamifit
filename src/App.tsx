@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useAuth, Show, SignInButton, UserButton } from "@clerk/react"
 import type { Recipe, RecipeInput, Snapshot } from "./types"
 import { categories } from "./data/recipes.js"
 import * as api from "./lib/api.js"
@@ -145,6 +146,7 @@ function RecipeCard({
 }
 
 export default function App() {
+  const { getToken } = useAuth()
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [databaseError, setDatabaseError] = useState("")
@@ -161,6 +163,11 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
   const [notice, setNotice] = useState("")
+
+  useEffect(() => {
+    api.setSessionTokenProvider(getToken)
+    return () => api.setSessionTokenProvider(null)
+  }, [getToken])
 
   useEffect(() => {
     let active = true
@@ -332,6 +339,16 @@ export default function App() {
             >
               <Icon name="user" size={19} />
             </button>
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button className="rounded-full border border-[#e8dbcf] bg-white px-4 py-2 text-sm font-extrabold">
+                  Entrar
+                </button>
+              </SignInButton>
+            </Show>
+            <Show when="signed-in">
+              <UserButton />
+            </Show>
           </div>
           <button
             onClick={() => setMobileMenu(!mobileMenu)}

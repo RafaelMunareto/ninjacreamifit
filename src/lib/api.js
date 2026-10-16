@@ -4,6 +4,8 @@ export { filterRecipes, errorMessage } from "./recipe-utils.js"
 /** @typedef {import("../types").RecipeInput} RecipeInput */
 /** @typedef {import("../types").AdminDetails} AdminDetails */
 const events = new EventTarget()
+/** @type {(() => Promise<string | null>) | null} */
+let sessionTokenProvider = null
 const channel =
   typeof BroadcastChannel === "undefined"
     ? null
@@ -28,17 +30,25 @@ function deviceToken() {
   return token
 }
 
+/** @param {(() => Promise<string | null>) | null} provider */
+export function setSessionTokenProvider(provider) {
+  sessionTokenProvider = provider
+}
+
 /** @param {string} action @param {Record<string, unknown>} [data] @returns {Promise<any>} */
 async function request(action, data = {}) {
   let response
   try {
+    const sessionToken = sessionTokenProvider
+      ? await sessionTokenProvider()
+      : null
     response = await fetch("/api/creami", {
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${deviceToken()}`,
+        Authorization: `Bearer ${sessionToken || deviceToken()}`,
       },
       body: JSON.stringify({ action, data }),
     })

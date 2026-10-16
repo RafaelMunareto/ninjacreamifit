@@ -1,4 +1,10 @@
-import { useDeferredValue, useEffect, useRef, useState } from "react"
+import {
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react"
 import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser"
 import type { FoodReference, LocalFood, Nutrition } from "../types"
 import {
@@ -58,7 +64,10 @@ export default function FoodCalculator({
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState("")
   const [scanning, setScanning] = useState(false)
+  const [identifyingPhoto, setIdentifyingPhoto] = useState(false)
+  const [aiMessage, setAiMessage] = useState("")
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const aiPhotoRef = useRef<HTMLInputElement | null>(null)
   const scanStreamRef = useRef<MediaStream | null>(null)
   const scannerControlsRef = useRef<IScannerControls | null>(null)
   const [error, setError] = useState("")
@@ -199,6 +208,50 @@ export default function FoodCalculator({
     scanStreamRef.current = null
     setScanning(false)
   }
+  const identifyFoodPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setSearchError("Escolha uma foto JPG, PNG ou WEBP.")
+      return
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      setSearchError("A foto deve ter no máximo 6 MB.")
+      return
+    }
+    setIdentifyingPhoto(true)
+    setAiMessage("")
+    setSearchError("")
+    try {
+      const image = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(new Error("Falha ao ler a foto."))
+        reader.readAsDataURL(file)
+      })
+      const response = await fetch("/api/food-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image }),
+      })
+      const result = await response.json()
+      if (!response.ok)
+        throw new Error(
+          result.error || "Não foi possível identificar o alimento.",
+        )
+      setQuery(result.food)
+      setAiMessage("Alimento identificado: " + result.food)
+    } catch (cause) {
+      setSearchError(
+        cause instanceof Error
+          ? cause.message
+          : "Não foi possível identificar o alimento pela foto.",
+      )
+    } finally {
+      setIdentifyingPhoto(false)
+    }
+  }
 
   return (
     <section
@@ -209,7 +262,6 @@ export default function FoodCalculator({
         <h3 className="font-display text-xl font-black">
           Alimentos e peso do pote
         </h3>
-       
       </div>
       {!catalog && !error && (
         <p role="status" className="mt-4 text-sm text-[#78665b]">
@@ -281,11 +333,21 @@ export default function FoodCalculator({
             </button>
             <button
               type="button"
-              disabled
+              onClick={() => aiPhotoRef.current?.click()}
+              disabled={identifyingPhoto}
               className="rounded-full border border-[#e5d8cc] bg-white px-4 py-2.5 text-xs font-bold text-[#8a776b]"
             >
-              Foto (IA)
+              {identifyingPhoto ? "Identificando…" : "Foto (IA)"}
             </button>
+            <input
+              ref={aiPhotoRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              onChange={identifyFoodPhoto}
+              className="sr-only"
+              aria-label="Tirar foto do alimento para identificar com IA"
+            />
           </div>
           <div
             className={`relative mt-3 overflow-hidden rounded-2xl bg-black ${
@@ -317,6 +379,11 @@ export default function FoodCalculator({
                   : results.total
                     ? `${results.total.toLocaleString("pt-BR")} alimentos encontrados`
                     : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
+            </p>
+          )}
+          {aiMessage && (
+            <p role="status" className="mt-2 text-xs font-bold text-[#52642f]">
+              {aiMessage}
             </p>
           )}
           {!!results.foods.length && (

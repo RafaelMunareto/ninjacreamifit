@@ -12,6 +12,8 @@
     "format": "oxfmt"
   },
   "dependencies": {
+    "@clerk/backend": "^3.24.0",
+    "@clerk/react": "^6.17.8",
     "@vercel/blob": "2.8.2",
     "@zxing/browser": "^0.2.1",
     "react": "^19.0.0",

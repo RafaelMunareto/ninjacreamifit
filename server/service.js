@@ -6,6 +6,7 @@ import {
   timingSafeEqual,
   pbkdf2,
 } from "node:crypto"
+import { verifyToken } from "@clerk/backend"
 import { promisify } from "node:util"
 import { seedRecipes, categoryColors } from "../src/data/recipes.js"
 import {
@@ -365,7 +366,7 @@ function apply(state, profile, adminToken, action, data) {
 
 export function createService(
   storage,
-  { initialAdmin = null, allowSetup = false } = {},
+  { initialAdmin = null, allowSetup = false, clerkSecretKey = "" } = {},
 ) {
   const initialState = () => ({
     version: 1,
@@ -392,9 +393,24 @@ export function createService(
     )
   }
   const identify = async (token) => {
-    if (typeof token !== "string" || !/^[a-f0-9]{64}$/.test(token))
+    if (typeof token !== "string" || !token) {
       fail("Identificação do perfil inválida.", 401)
-    const tokenHash = digest(token)
+    }
+    let tokenHash
+    if (/^[a-f0-9]{64}$/.test(token)) {
+      tokenHash = digest(token)
+    } else if (clerkSecretKey) {
+      try {
+        const claims = await verifyToken(token, { secretKey: clerkSecretKey })
+        if (typeof claims.sub !== "string" || !claims.sub)
+          fail("Sessão do usuário inválida.", 401)
+        tokenHash = digest(`clerk:${claims.sub}`)
+      } catch {
+        fail("Sessão do usuário inválida.", 401)
+      }
+    } else {
+      fail("Identificação do perfil inválida.", 401)
+    }
     let { state } = await storage.read()
     if (!state?.profiles.some((profile) => profile.tokenHash === tokenHash)) {
       await mutate((state) => profileFor(state, tokenHash))
