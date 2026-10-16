@@ -5,12 +5,15 @@ import type {
   Program,
   Recipe,
   RecipeInput,
+  FoodReference,
+  Nutrition,
 } from "../types"
 import { categories, programs } from "../data/recipes.js"
 import { errorMessage } from "../lib/api.js"
 import { preparePhoto } from "../lib/photo.js"
 import Icon from "./Icon"
 import Modal from "./Modal"
+import FoodCalculator from "./FoodCalculator"
 
 export default function RecipeForm({
   recipe,
@@ -35,6 +38,23 @@ export default function RecipeForm({
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
   const [processingPhoto, setProcessingPhoto] = useState(false)
+  const [foodItems, setFoodItems] = useState<FoodReference[]>(
+    recipe?.foodItems || [],
+  )
+  const [automaticIngredients, setAutomaticIngredients] = useState(
+    () => recipe?.ingredients.slice(0, recipe.foodItems?.length || 0) || [],
+  )
+  const [manualIngredients, setManualIngredients] = useState(
+    () =>
+      recipe?.ingredients.slice(recipe.foodItems?.length || 0).join("\n") || "",
+  )
+  const [showCalculator, setShowCalculator] = useState(true)
+  const [macros, setMacros] = useState<Record<keyof Nutrition, string>>(() => ({
+    protein: recipe ? String(recipe.protein) : "",
+    carbs: recipe ? String(recipe.carbs) : "",
+    fat: recipe ? String(recipe.fat) : "",
+    calories: recipe ? String(recipe.calories) : "",
+  }))
   const photoVersion = useRef(0)
   const savingRef = useRef(false)
   const initialRatings = useRef({
@@ -42,6 +62,29 @@ export default function RecipeForm({
     votes: recipe?.votes ?? 0,
   })
   const busy = saving || processingPhoto
+
+  const updateFoods = (
+    references: FoodReference[],
+    descriptions: string[],
+    totals: Nutrition | null,
+  ) => {
+    setFoodItems(references)
+    setAutomaticIngredients(descriptions)
+    setMacros({
+      protein: totals ? String(totals.protein) : "",
+      carbs: totals ? String(totals.carbs) : "",
+      fat: totals ? String(totals.fat) : "",
+      calories: totals ? String(totals.calories) : "",
+    })
+  }
+  const detachFoods = () => {
+    setManualIngredients(
+      [...automaticIngredients, manualIngredients].filter(Boolean).join("\n"),
+    )
+    setAutomaticIngredients([])
+    setFoodItems([])
+    setShowCalculator(false)
+  }
 
   const handlePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -92,7 +135,8 @@ export default function RecipeForm({
           program: string("program") as Program,
           respin: string("respin") === "sim",
           toppings: hasToppings ? string("toppings") : "",
-          ingredients: lines("ingredients"),
+          ingredients: [...automaticIngredients, ...lines("ingredients")],
+          foodItems,
           instructions: lines("instructions"),
           protein: requiredNumber("protein_g"),
           carbs: requiredNumber("carbs_g"),
@@ -297,21 +341,48 @@ export default function RecipeForm({
                 maxLength={500}
               />
             )}
+            {showCalculator ? (
+              <FoodCalculator
+                initialItems={foodItems}
+                initialLabels={automaticIngredients}
+                onRestore={setAutomaticIngredients}
+                onChange={updateFoods}
+                onDetach={detachFoods}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowCalculator(true)}
+                className="text-sm font-bold text-[#d63f68] underline"
+              >
+                Voltar à busca de alimentos por peso
+              </button>
+            )}
             <label className="block">
               <span className="mb-2 block text-sm font-extrabold">
-                Ingredientes · um por linha
+                {foodItems.length
+                  ? "Outros ingredientes e observações · opcional"
+                  : "Ingredientes · um por linha"}
               </span>
               <textarea
                 name="ingredients"
-                required
+                required={!automaticIngredients.length}
                 rows={4}
                 maxLength={15000}
-                defaultValue={recipe?.ingredients.join("\n")}
+                value={manualIngredients}
+                onChange={(event) => setManualIngredients(event.target.value)}
                 placeholder={
                   "200 ml de leite desnatado\n30 g de whey de baunilha"
                 }
                 className="form-input resize-y"
               />
+              {foodItems.length > 0 && (
+                <span className="mt-2 block text-xs leading-relaxed text-[#8a776b]">
+                  Só os alimentos selecionados entram no cálculo automático. Se
+                  adicionar outro ingrediente com calorias aqui, inclua-o também
+                  na calculadora ou ajuste os totais abaixo.
+                </span>
+              )}
             </label>
             <label className="block">
               <span className="mb-2 block text-sm font-extrabold">
@@ -334,8 +405,9 @@ export default function RecipeForm({
                 Macros e calorias por pote · obrigatório
               </p>
               <p className="mb-3 mt-1 text-xs text-[#8a776b]">
-                Preencha os quatro campos. Informe 0 quando o nutriente não
-                estiver presente.
+                {foodItems.length
+                  ? "Totais dos alimentos selecionados. Você pode corrigir os valores, se necessário."
+                  : "Preencha os quatro campos ou escolha alimentos acima para calcular. Informe 0 quando o nutriente não estiver presente."}
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <Field
@@ -343,28 +415,40 @@ export default function RecipeForm({
                   name="protein_g"
                   type="number"
                   placeholder="0"
-                  defaultValue={recipe?.protein}
+                  value={macros.protein}
+                  onValueChange={(value) =>
+                    setMacros((previous) => ({ ...previous, protein: value }))
+                  }
                 />
                 <Field
                   label="Carbo (g)"
                   name="carbs_g"
                   type="number"
                   placeholder="0"
-                  defaultValue={recipe?.carbs}
+                  value={macros.carbs}
+                  onValueChange={(value) =>
+                    setMacros((previous) => ({ ...previous, carbs: value }))
+                  }
                 />
                 <Field
                   label="Gordura (g)"
                   name="fat_g"
                   type="number"
                   placeholder="0"
-                  defaultValue={recipe?.fat}
+                  value={macros.fat}
+                  onValueChange={(value) =>
+                    setMacros((previous) => ({ ...previous, fat: value }))
+                  }
                 />
                 <Field
                   label="Calorias"
                   name="calories"
                   type="number"
                   placeholder="0"
-                  defaultValue={recipe?.calories}
+                  value={macros.calories}
+                  onValueChange={(value) =>
+                    setMacros((previous) => ({ ...previous, calories: value }))
+                  }
                 />
               </div>
             </div>
@@ -438,6 +522,8 @@ function Field({
   placeholder,
   type = "text",
   defaultValue,
+  value,
+  onValueChange,
   min = 0,
   max = 10000,
   step = "any",
@@ -448,6 +534,8 @@ function Field({
   placeholder: string
   type?: string
   defaultValue?: string | number
+  value?: string
+  onValueChange?: (value: string) => void
   min?: number
   max?: number
   step?: string | number
@@ -464,7 +552,13 @@ function Field({
         max={type === "number" ? max : undefined}
         step={type === "number" ? step : undefined}
         maxLength={maxLength}
-        defaultValue={defaultValue}
+        defaultValue={value === undefined ? defaultValue : undefined}
+        value={value}
+        onChange={
+          onValueChange
+            ? (event) => onValueChange(event.target.value)
+            : undefined
+        }
         placeholder={placeholder}
         className="form-input"
       />

@@ -11,6 +11,26 @@ React + Vite com uma API JavaScript e um banco **SQLite** no mesmo projeto da Ve
 - Favoritos pertencem ao perfil. Cada perfil pode dar uma nota por receita e alterar essa nota.
 - A administração com senha pode editar e excluir qualquer receita e alterar os totais de avaliações.
 
+## Alimentos e cálculo por peso
+
+No formulário, a pessoa busca um alimento na **base local TBCA**, escolhe o item e informa seu peso em gramas. Calorias, proteínas, carboidratos e gorduras do pote são somados automaticamente. Os alimentos e pesos são preservados para a edição posterior; o preenchimento manual continua disponível.
+
+A busca e os cálculos acontecem no navegador usando `public/data/tbca-foods-v1.json`, um arquivo estático do próprio site. Não há serviço externo de nutrição, chave de API, conta de provedor ou consulta ao GitHub durante o uso. A tabela só é baixada ao abrir o formulário; depois de carregada, a busca e os cálculos continuam funcionando sem rede. Publicar receitas e ver as atualizações de outros aparelhos continuam exigindo conexão com a API do site.
+
+O arquivo contém **5.668 alimentos**, sendo **5.654 com os quatro valores necessários ao cálculo**. A origem é o [arquivo alimentos.txt de raul-rznd](https://github.com/raul-rznd/web-scraping-tbca/blob/main/alimentos.txt), uma extração da Tabela Brasileira de Composição de Alimentos. A cópia incluída registra o commit de origem e o SHA-256 do conteúdo original. O arquivo original tem cerca de 17,5 MB; a versão reduzida do site tem cerca de 1,17 MB e mantém apenas identificação, descrição, grupo e os nutrientes utilizados.
+
+Os valores são por **100 g**. A importação usa energia em **kcal**, proteína em g, **carboidrato total** em g e lipídios em g; kcal não é confundido com kJ e mililitros não são convertidos em gramas. Valores `NA`, ausentes ou contraditórios ficam desconhecidos, e esses alimentos são identificados como incompletos. Registros repetidos com valores idênticos são consolidados. `tr` é preservado como indicador de traços, tratado como aproximadamente zero no cálculo e informado na tela. O arredondamento ocorre somente após a soma dos ingredientes.
+
+Para regenerar a cópia local a partir da versão de origem fixada no script:
+
+```sh
+node scripts/import-tbca.mjs
+# Ou importar um arquivo já baixado, sem rede:
+node scripts/import-tbca.mjs /caminho/alimentos.txt
+```
+
+O SQLite de receitas usa a versão 2 do esquema para guardar os códigos TBCA e os pesos. A versão anterior do banco continua sendo lida e é atualizada na próxima gravação, preservando receitas, perfis, notas e senha. A tabela pública de alimentos não contém dados dos usuários.
+
 ## Armazenamento e API
 
 `api/creami.js` e `api/image.js` são Vercel Functions. `server/service.js` valida os dados e a autoria no servidor. O cliente em `src/lib/api.js` envia as operações pela API, sem gravar receitas no IndexedDB.

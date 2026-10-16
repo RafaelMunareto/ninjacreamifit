@@ -55,6 +55,26 @@ export function validateRecipe(input, existingImage) {
     typeof input.toppings === "string" ? input.toppings.trim() : ""
   if (toppings.length > 500)
     throw new Error("Descreva os toppings em até 500 caracteres.")
+  let foodItems
+  if (input.foodItems !== undefined) {
+    if (!Array.isArray(input.foodItems) || input.foodItems.length > 50)
+      throw new Error("Adicione no máximo 50 alimentos por receita.")
+    foodItems = input.foodItems.map((item) => {
+      if (
+        !item ||
+        typeof item.foodId !== "string" ||
+        !/^[A-Z]\d{4}[A-Z]$/.test(item.foodId) ||
+        typeof item.grams !== "number" ||
+        !Number.isFinite(item.grams) ||
+        item.grams <= 0 ||
+        item.grams > 10000
+      )
+        throw new Error(
+          "Informe uma quantidade válida para cada alimento selecionado.",
+        )
+      return { foodId: item.foodId, grams: item.grams }
+    })
+  }
   return {
     title,
     category: input.category,
@@ -68,6 +88,7 @@ export function validateRecipe(input, existingImage) {
     carbs: input.carbs,
     fat: input.fat,
     calories: input.calories,
+    ...(foodItems === undefined ? {} : { foodItems }),
   }
 }
 

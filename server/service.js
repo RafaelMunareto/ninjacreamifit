@@ -267,6 +267,8 @@ function apply(state, profile, adminToken, action, data) {
     ? input.image
     : existing?.image
   const values = validateRecipe(input, allowedImage)
+  if (input.foodItems === undefined && existing?.foodItems !== undefined)
+    values.foodItems = structuredClone(existing.foodItems)
   const localName =
     !data.details && input.authorName !== undefined
       ? text(input.authorName, "seu nome", 60)

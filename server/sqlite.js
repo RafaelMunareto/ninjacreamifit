@@ -6,7 +6,7 @@ const sqlite = () => (engine ||= initSqlJs())
 
 const SCHEMA = `
   PRAGMA foreign_keys = ON;
-  PRAGMA user_version = 1;
+  PRAGMA user_version = 2;
   CREATE TABLE metadata (key TEXT PRIMARY KEY, value INTEGER NOT NULL);
   CREATE TABLE profiles (
     id TEXT PRIMARY KEY, tokenHash TEXT NOT NULL UNIQUE,
@@ -33,6 +33,15 @@ const SCHEMA = `
     recipeId TEXT NOT NULL REFERENCES recipes(id),
     value INTEGER NOT NULL CHECK (value BETWEEN 1 AND 5),
     position INTEGER NOT NULL, PRIMARY KEY (profileId, recipeId)
+  );
+  CREATE TABLE foodItems (
+    recipeId TEXT NOT NULL REFERENCES recipes(id), position INTEGER NOT NULL,
+    foodId TEXT NOT NULL,
+    grams REAL NOT NULL CHECK (grams > 0 AND grams <= 10000),
+    PRIMARY KEY (recipeId, position)
+  );
+  CREATE TABLE foodRecipes (
+    recipeId TEXT PRIMARY KEY REFERENCES recipes(id)
   );
   CREATE TABLE favorites (
     profileId TEXT NOT NULL REFERENCES profiles(id),
@@ -151,6 +160,21 @@ export async function encodeSqlite(state) {
         position,
       ]),
     )
+    for (const recipe of state.recipes) {
+      if (recipe.foodItems === undefined) continue
+      insertRows(database, "foodRecipes", ["recipeId"], [[recipe.id]])
+      insertRows(
+        database,
+        "foodItems",
+        ["recipeId", "position", "foodId", "grams"],
+        recipe.foodItems.map((item, position) => [
+          recipe.id,
+          position,
+          item.foodId,
+          item.grams,
+        ]),
+      )
+    }
     for (const profile of state.profiles) {
       insertRows(
         database,
@@ -192,7 +216,8 @@ export async function decodeSqlite(bytes) {
   const database = new SQL.Database(bytes)
   try {
     const version = database.exec("PRAGMA user_version")[0]?.values[0][0]
-    if (version !== 1) throw new Error("Versão do banco SQLite não suportada.")
+    if (version !== 1 && version !== 2)
+      throw new Error("Versão do banco SQLite não suportada.")
     const profiles = select(
       database,
       "SELECT id, tokenHash, name FROM profiles ORDER BY position",
@@ -234,6 +259,18 @@ export async function decodeSqlite(bytes) {
       else recipe.authorOverride = Boolean(row.authorOverride)
       return recipe
     })
+    if (version === 2) {
+      const byRecipe = new Map(recipes.map((recipe) => [recipe.id, recipe]))
+      for (const row of select(database, "SELECT recipeId FROM foodRecipes"))
+        byRecipe.get(row.recipeId).foodItems = []
+      for (const row of select(
+        database,
+        "SELECT recipeId, foodId, grams FROM foodItems ORDER BY position",
+      )) {
+        const { recipeId, ...item } = row
+        byRecipe.get(recipeId).foodItems.push(item)
+      }
+    }
     return {
       version: select(
         database,

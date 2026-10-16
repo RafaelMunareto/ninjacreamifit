@@ -1,6 +1,31 @@
 export type Program = "sorbet" | "sorvete" | "sorvete_light" | "gelato"
 export type Category = "Frutados" | "Chocolate" | "Cremosos" | "Veganos" | "Baixa caloria"
 
+export interface Nutrition {
+  protein: number
+  carbs: number
+  fat: number
+  calories: number
+}
+
+export type NutrientKey = keyof Nutrition
+
+export interface FoodReference {
+  foodId: string
+  grams: number
+}
+
+export interface LocalFood {
+  id: string
+  name: string
+  category: string
+  protein: number | null
+  carbs: number | null
+  fat: number | null
+  calories: number | null
+  traces?: NutrientKey[]
+}
+
 export interface RecipeInput {
   authorName?: string
   title: string
@@ -15,6 +40,7 @@ export interface RecipeInput {
   carbs: number
   fat: number
   calories: number
+  foodItems?: FoodReference[]
 }
 
 export interface StoredRecipe extends RecipeInput {
