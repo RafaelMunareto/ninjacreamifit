@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
 import type { Recipe } from "../types"
 import { programs } from "../data/recipes.js"
-import { errorMessage } from "../lib/local-api.js"
+import { errorMessage } from "../lib/api.js"
 import Icon from "./Icon"
 import Macro from "./Macro"
 import Modal from "./Modal"
@@ -174,7 +174,7 @@ export default function RecipeDetails({
             <span className="text-xs font-semibold text-[#8a776b]">
               {recipe.ownRating
                 ? `Sua nota: ${recipe.ownRating}/5. Você pode alterar quando quiser.`
-                : "Sua opinião fica salva neste navegador."}
+                : "Sua avaliação ajuda toda a comunidade."}
             </span>
           </div>
           <div className="flex gap-1" role="group" aria-label="Avaliar receita">

@@ -42,6 +42,7 @@ export interface AdminDetails {
   author: string
   rating: number
   votes: number
+  ratingsChanged?: boolean
 }
 
 export interface AdminStatus {

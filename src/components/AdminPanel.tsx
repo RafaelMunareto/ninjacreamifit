@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import type { AdminDetails, RecipeInput, Snapshot } from "../types"
-import * as api from "../lib/local-api.js"
+import * as api from "../lib/api.js"
 import { categories } from "../data/recipes.js"
 import Icon from "./Icon"
 import Modal from "./Modal"
@@ -103,10 +103,11 @@ export default function AdminPanel({
       setNotice("Senha de administrador alterada.")
     })
   }
-  const exit = () => {
-    api.logoutAdmin()
-    onClose()
-  }
+  const exit = () =>
+    void run(async () => {
+      await api.logoutAdmin()
+      onClose()
+    })
 
   return (
     <main className="min-h-screen bg-[#fffaf3] text-[#342820]">
@@ -157,7 +158,7 @@ export default function AdminPanel({
             <p className="mt-3 text-sm leading-relaxed text-[#78665b]">
               {configured
                 ? "Entre com sua senha para gerenciar todas as receitas, macros, estrelas e avaliações."
-                : "Este é o primeiro acesso neste navegador. Defina uma senha de 10 a 128 caracteres para liberar as alterações do catálogo."}
+                : "Este é o primeiro acesso ao servidor de desenvolvimento. Defina uma senha de 10 a 128 caracteres para liberar as alterações do catálogo."}
             </p>
             <form
               key={configured ? "login" : "setup"}
@@ -202,9 +203,8 @@ export default function AdminPanel({
               </button>
             </form>
             <p className="mt-5 text-xs leading-relaxed text-[#8a776b]">
-              A senha vale para este navegador. Recarregar a página encerra o
-              acesso de administrador. Guarde sua senha: não há recuperação por
-              e-mail.
+              A senha protege a administração do site. Use Sair para encerrar
+              seu acesso. Guarde sua senha: não há recuperação por e-mail.
             </p>
           </section>
         ) : (
@@ -219,7 +219,7 @@ export default function AdminPanel({
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm text-[#78665b]">
                   Edite qualquer receita, inclusive as do catálogo inicial. As
-                  alterações atualizam o site e permanecem neste navegador.
+                  alterações são salvas no servidor e aparecem para todos.
                 </p>
               </div>
               <span className="self-start rounded-full bg-[#eef8dd] px-4 py-2 text-xs font-extrabold text-[#52642f]">
@@ -363,7 +363,7 @@ export default function AdminPanel({
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-[#78665b]">
               A receita <strong>{deleting.title}</strong>, seus favoritos e suas
-              avaliações serão removidos deste navegador. Essa ação não pode ser
+              avaliações serão removidos do site. Essa ação não pode ser
               desfeita.
             </p>
             {error && (
