@@ -185,7 +185,7 @@ async function searchFatSecret(query, barcode, limit) {
     const foodId = found.food_id || found.fod_id?.value
     ids = foodId && foodId !== "0" ? [String(foodId)] : []
   } else {
-    const data = await request("foods.search.v2", {
+    const data = await request("foods.search", {
       search_expression: query,
       max_results: Math.min(limit, 20),
     })
