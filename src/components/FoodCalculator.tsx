@@ -213,11 +213,6 @@ export default function FoodCalculator({
           TBCA + IBGE
         </span>
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-[#78665b]">
-        Escolha cada alimento e informe o peso em gramas. Calorias e macros
-        serão somados automaticamente, incluindo os toppings que você adicionar
-        aqui.
-      </p>
       {!catalog && !error && (
         <p role="status" className="mt-4 text-sm text-[#78665b]">
           Carregando a tabela de alimentos…
@@ -315,12 +310,6 @@ export default function FoodCalculator({
               Fechar câmera
             </button>
           </div>
-          {query.trim().length < 2 && (
-            <p className="mt-2 text-xs text-[#8a776b]">
-              Digite pelo menos 2 letras. Você pode combinar palavras, como
-              “leite desnatado”.
-            </p>
-          )}
           {query.trim().length >= 2 && (
             <p role="status" className="mt-3 text-xs text-[#8a776b]">
               {searching
@@ -332,15 +321,6 @@ export default function FoodCalculator({
                     : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
             </p>
           )}
-          {!searching &&
-            !searchError &&
-            results.fallback &&
-            results.total > 0 && (
-              <p role="status" className="mt-2 text-xs text-[#78665b]">
-                Resultados da busca complementar:{" "}
-                {results.source === "IBGE" ? "da API IBGE" : "da TBCA"}.
-              </p>
-            )}
           {!!results.foods.length && (
             <ul
               aria-label="Resultados de alimentos"
@@ -361,9 +341,6 @@ export default function FoodCalculator({
                         <strong className="block break-words text-sm">
                           {food.name}
                         </strong>
-                        <span className="mt-1 block text-[11px] text-[#8a776b]">
-                          {food.source || "TBCA"} · {food.category} · {food.id}
-                        </span>
                         <span className="mt-1 block text-xs text-[#78665b]">
                           {complete
                             ? `Por 100 g: ${display(food.calories)} kcal · P ${display(food.protein)} g · C ${display(food.carbs)} g · G ${display(food.fat)} g`
@@ -401,9 +378,6 @@ export default function FoodCalculator({
                         <strong className="block break-words text-sm">
                           {item.food.name}
                         </strong>
-                        <span className="text-[11px] text-[#8a776b]">
-                          {item.food.source || "TBCA"} · {item.food.id}
-                        </span>
                       </div>
                       <button
                         type="button"
@@ -451,12 +425,6 @@ export default function FoodCalculator({
                         {display(nutrition.fat)} g
                       </p>
                     )}
-                    {!!item.food.traces?.length && (
-                      <p className="mt-1 text-xs text-[#8a776b]">
-                        A base indica traços em parte dos nutrientes; o cálculo
-                        considera esses traços como aproximadamente zero.
-                      </p>
-                    )}
                   </li>
                 )
               })}
@@ -469,30 +437,6 @@ export default function FoodCalculator({
           )}
         </>
       )}
-      <p className="mt-4 text-[11px] leading-relaxed text-[#8a776b]">
-        Valores por 100 g da parte comestível. Escolha a preparação
-        correspondente ao alimento pesado. Fontes: TBCA, via{" "}
-        <a
-          href="https://github.com/raul-rznd/web-scraping-tbca"
-          target="_blank"
-          rel="noreferrer"
-          className="font-bold underline"
-        >
-          arquivo de raul-rznd
-        </a>
-        , e IBGE, via{" "}
-        <a
-          href="https://github.com/renandspedrosa/tabela-taco-api"
-          target="_blank"
-          rel="noreferrer"
-          className="font-bold underline"
-        >
-          tabela-taco-api
-        </a>
-        . A busca tenta a TBCA primeiro e consulta a API IBGE do site quando
-        necessário. O cálculo por peso acontece neste aparelho. As bases podem
-        apresentar valores diferentes para alimentos semelhantes.
-      </p>
     </section>
   )
 }
