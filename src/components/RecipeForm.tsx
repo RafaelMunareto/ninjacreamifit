@@ -7,7 +7,7 @@ import type {
   RecipeInput,
 } from "../types"
 import { categories, programs } from "../data/recipes.js"
-import { errorMessage } from "../lib/local-api.js"
+import { errorMessage } from "../lib/api.js"
 import { preparePhoto } from "../lib/photo.js"
 import Icon from "./Icon"
 import Modal from "./Modal"
@@ -37,6 +37,10 @@ export default function RecipeForm({
   const [processingPhoto, setProcessingPhoto] = useState(false)
   const photoVersion = useRef(0)
   const savingRef = useRef(false)
+  const initialRatings = useRef({
+    rating: recipe?.rating ?? 0,
+    votes: recipe?.votes ?? 0,
+  })
   const busy = saving || processingPhoto
 
   const handlePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -102,6 +106,9 @@ export default function RecipeForm({
               author: string("author"),
               rating: Number(string("rating")),
               votes: Number(string("votes")),
+              ratingsChanged:
+                Number(string("rating")) !== initialRatings.current.rating ||
+                Number(string("votes")) !== initialRatings.current.votes,
             }
           : undefined,
       )
@@ -146,7 +153,7 @@ export default function RecipeForm({
         </div>
         <p className="mt-3 text-sm text-[#78665b]">
           {adminMode
-            ? "Altere os dados da receita e salve para atualizar o catálogo deste navegador."
+            ? "Altere os dados da receita e salve para atualizar o catálogo para todos."
             : recipe
               ? "Atualize sua receita. As avaliações serão preservadas."
               : "Escolha seu nome e envie a receita. Depois, você poderá editar ou excluir em Minhas receitas."}
@@ -389,10 +396,10 @@ export default function RecipeForm({
                   />
                 </div>
                 <p className="mt-3 text-xs leading-relaxed text-[#78665b]">
-                  Use média 0 para nenhuma avaliação. Ao alterar estes totais, a
-                  nota local anterior será incorporada ao consolidado; uma nova
-                  avaliação contará à parte. Se os totais não mudarem, sua nota
-                  será preservada.
+                  Use média 0 para nenhuma avaliação. Ao alterar estes totais,
+                  as avaliações anteriores serão incorporadas ao consolidado;
+                  uma nova avaliação contará à parte. Se os totais não mudarem,
+                  sua nota será preservada.
                 </p>
               </div>
             )}

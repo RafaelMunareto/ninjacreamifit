@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import type { Recipe } from "../types"
-import { errorMessage } from "../lib/local-api.js"
+import { errorMessage } from "../lib/api.js"
 import Modal from "./Modal"
 
 export default function DeleteRecipeDialog({
@@ -44,8 +44,8 @@ export default function DeleteRecipeDialog({
           Excluir minha receita?
         </h2>
         <p className="mt-4 text-sm leading-relaxed text-[#78665b]">
-          A receita <strong>{recipe.title}</strong> será excluída junto com suas
-          avaliações e favoritos. Essa ação não pode ser desfeita.
+          A receita <strong>{recipe.title}</strong> será excluída do site junto
+          com suas avaliações e favoritos. Essa ação não pode ser desfeita.
         </p>
         {error && (
           <p role="alert" className="mt-4 text-sm font-bold text-[#b92e53]">

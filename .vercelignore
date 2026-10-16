@@ -1,0 +1,8 @@
+node_modules
+.data
+.vercel
+.env*
+.admin-access.local
+*.log
+coverage
+tests

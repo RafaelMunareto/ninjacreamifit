@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { Recipe, RecipeInput, Snapshot } from "./types"
 import { categories } from "./data/recipes.js"
-import * as api from "./lib/local-api.js"
+import * as api from "./lib/api.js"
 import Icon from "./components/Icon"
 import Macro from "./components/Macro"
 import RecipeDetails from "./components/RecipeDetails"
@@ -245,8 +245,8 @@ export default function App() {
     setSort("recent")
     setNotice(
       id
-        ? "Alterações salvas neste navegador!"
-        : "Receita salva! Ela já está em Minhas receitas.",
+        ? "Alterações publicadas no site!"
+        : "Receita publicada! Ela já aparece para todos.",
     )
   }
   const toggleFavorite = async (recipe: Recipe) => {
@@ -562,8 +562,8 @@ export default function App() {
             </label>
           </div>
           <p className="mt-4 text-xs font-medium text-[#8a776b]">
-            Catálogo inicial com receitas e notas de exemplo. Suas receitas,
-            favoritos e avaliações ficam neste navegador.
+            Catálogo inicial com receitas e notas de exemplo. As novas receitas
+            e avaliações são compartilhadas com toda a comunidade.
           </p>
           {databaseError && (
             <div

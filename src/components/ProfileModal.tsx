@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from "react"
 import type { Profile, Recipe } from "../types"
-import { errorMessage } from "../lib/local-api.js"
+import { errorMessage } from "../lib/api.js"
 import Modal from "./Modal"
 import Icon from "./Icon"
 
@@ -72,8 +72,8 @@ export default function ProfileModal({
         </div>
         <p className="mt-4 text-sm leading-relaxed text-[#78665b]">
           Basta escolher seu nome para criar receitas. Em Minhas receitas, você
-          pode editar e excluir o que enviou, sem senha. Seu perfil e suas
-          receitas serão lembrados neste navegador.
+          pode editar e excluir o que enviou, sem senha. Seu perfil é lembrado
+          neste navegador e suas receitas ficam disponíveis no site para todos.
         </p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           <label className="block">

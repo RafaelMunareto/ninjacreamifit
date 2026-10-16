@@ -11,6 +11,9 @@ logs/
 *.log
 .claude-replay.*
 .tmp-*
+.vercel/
+.data/
+.admin-access.local
 /.figma/design-context/
 
 # Platform-managed agentplat state, not project source. In the
@@ -19,3 +22,4 @@ logs/
 # beside it.
 /.plugins/
 /.opencode-skills/
+.vercel
