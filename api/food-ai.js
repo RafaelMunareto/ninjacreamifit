@@ -6,6 +6,15 @@ function parseDataUrl(image) {
   return match ? { mimeType: match[1], data: match[2] } : null
 }
 
+function parseModelJson(content) {
+  const cleaned = String(content || "")
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim()
+  return JSON.parse(cleaned || "{}")
+}
+
 async function analyzeWithGemini(imageData) {
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite"
   const endpoint = new URL(
@@ -39,7 +48,7 @@ async function analyzeWithGemini(imageData) {
   const content = data.candidates?.[0]?.content?.parts
     ?.map((part) => part.text || "")
     .join("")
-  return JSON.parse(content || "{}")
+  return parseModelJson(content)
 }
 
 export default async function handler(request, response) {
@@ -121,7 +130,7 @@ export default async function handler(request, response) {
       const data = await upstream.json()
       if (!upstream.ok) throw new Error("OpenAI error")
       const content = data.choices?.[0]?.message?.content
-      parsed = JSON.parse(content || "{}")
+      parsed = parseModelJson(content)
     }
     if (
       typeof parsed.food !== "string" ||
