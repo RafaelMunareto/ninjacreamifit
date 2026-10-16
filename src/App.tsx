@@ -449,33 +449,35 @@ export default function App() {
           </div>
         </div>
 
-        <div className="relative mx-auto h-[520px] w-full max-w-[560px]">
-          <div className="absolute inset-8 rotate-3 rounded-[48%_52%_42%_58%/55%_42%_58%_45%] bg-[#b8e46c]" />
-          <div className="absolute inset-0 -rotate-3 overflow-hidden rounded-[46%_54%_56%_44%/47%_42%_58%_53%] border-[10px] border-white shadow-[0_30px_80px_rgba(74,49,32,0.18)]">
+        <div className="relative mx-auto aspect-square w-full max-w-[420px] sm:aspect-[14/13] sm:max-w-[560px] lg:aspect-auto lg:h-[520px]">
+          <div className="absolute inset-5 rotate-3 rounded-[48%_52%_42%_58%/55%_42%_58%_45%] bg-[#b8e46c] sm:inset-8" />
+          <div className="absolute inset-0 -rotate-3 overflow-hidden rounded-[46%_54%_56%_44%/47%_42%_58%_53%] border-[6px] border-white shadow-[0_30px_80px_rgba(74,49,32,0.18)] sm:border-[10px]">
             <img
               src="https://images.unsplash.com/photo-1628815870980-f416105d89b3?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=90&w=1080"
               alt="Sorvete cremoso sendo retirado de um pote"
-              className="h-full w-full object-cover"
+              width={1080}
+              height={1620}
+              className="block h-full w-full object-cover object-center"
             />
           </div>
-          <div className="float-card absolute -left-3 top-16 rounded-3xl bg-white p-4 shadow-xl">
+          <div className="float-card absolute -left-1 top-8 rounded-2xl bg-white p-3 shadow-xl sm:-left-3 sm:top-16 sm:rounded-3xl sm:p-4">
             <span className="text-xs font-bold text-[#8e7a6f]">
               Muita proteína
             </span>
-            <strong className="mt-1 block font-display text-3xl text-[#ef4f78]">
+            <strong className="mt-1 block font-display text-2xl text-[#ef4f78] sm:text-3xl">
               32g
             </strong>
           </div>
-          <div className="float-card-delay absolute -bottom-3 right-0 rounded-3xl bg-[#342820] p-4 pr-6 text-white shadow-xl">
-            <span className="flex items-center gap-2 text-xs font-bold text-[#d8c8bc]">
+          <div className="float-card-delay absolute -bottom-4 right-0 max-w-[calc(100%-1rem)] rounded-2xl bg-[#342820] p-3 text-white shadow-xl sm:-bottom-3 sm:rounded-3xl sm:p-4 sm:pr-6">
+            <span className="flex items-center gap-2 text-[10px] font-bold text-[#d8c8bc] sm:text-xs">
               <Icon name="bowl" size={16} /> Modo Lite Ice Cream
             </span>
-            <strong className="mt-1 block font-display text-lg">
+            <strong className="mt-1 block font-display text-sm sm:text-lg">
               24h congelando + 1 re-spin
             </strong>
           </div>
-          <span className="absolute -right-5 top-4 size-16 rotate-12 rounded-[40%] bg-[#b79af6]" />
-          <span className="absolute -left-8 bottom-24 size-10 rounded-full bg-[#ffd45e]" />
+          <span className="absolute -right-1 top-3 size-10 rotate-12 rounded-[40%] bg-[#b79af6] sm:-right-5 sm:top-4 sm:size-16" />
+          <span className="absolute -left-2 bottom-16 size-6 rounded-full bg-[#ffd45e] sm:-left-8 sm:bottom-24 sm:size-10" />
         </div>
       </section>
 
