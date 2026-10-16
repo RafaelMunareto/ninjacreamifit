@@ -97,12 +97,14 @@ export default function FoodCalculator({
   const [aiError, setAiError] = useState("")
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([])
   const [listening, setListening] = useState(false)
+  const [processingVoice, setProcessingVoice] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const scanStreamRef = useRef<MediaStream | null>(null)
   const scannerControlsRef = useRef<IScannerControls | null>(null)
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const voiceResultRef = useRef(false)
   const [error, setError] = useState("")
   const [restoreError, setRestoreError] = useState("")
   const [retry, setRetry] = useState(0)
@@ -223,6 +225,7 @@ export default function FoodCalculator({
       .trim()
     if (spokenFood.length < 2) {
       setSearchError("Diga o nome do alimento, por exemplo: banana 150 gramas.")
+      setProcessingVoice(false)
       return
     }
     const suggestion: AiSuggestion = {
@@ -234,7 +237,10 @@ export default function FoodCalculator({
     setAiMessage(
       `Sugestão por voz: ${spokenFood}${detectedQuantity ? ` · ${detectedQuantity.quantity} ${detectedQuantity.unit}` : ""}`,
     )
-    if (!catalog) return
+    if (!catalog) {
+      setProcessingVoice(false)
+      return
+    }
     try {
       const localMatch = searchFoods(catalog, spokenFood, 5, source).foods.find(
         hasCompleteNutrition,
@@ -257,6 +263,8 @@ export default function FoodCalculator({
       setSearchError(
         "Reconheci o alimento, mas não consegui buscar os nutrientes agora. Tente novamente.",
       )
+    } finally {
+      setProcessingVoice(false)
     }
   }
   const startVoiceInput = () => {
@@ -265,6 +273,7 @@ export default function FoodCalculator({
       webkitSpeechRecognition?: SpeechRecognitionConstructor
     }
     if (listening) {
+      setProcessingVoice(true)
       speechRecognitionRef.current?.stop()
       return
     }
@@ -285,18 +294,26 @@ export default function FoodCalculator({
         .trim()
         .replace(/\s+/g, " ")
       if (!transcript) return
+      voiceResultRef.current = true
+      setProcessingVoice(true)
       setSearchError("")
       void suggestVoiceFood(transcript)
     }
     recognition.onerror = () => {
       setListening(false)
+      setProcessingVoice(false)
       setSearchError("Não consegui entender o áudio. Fale novamente em português.")
     }
     recognition.onend = () => {
       setListening(false)
       speechRecognitionRef.current = null
+      if (!voiceResultRef.current) {
+        setProcessingVoice(false)
+        setSearchError("Não consegui ouvir o alimento. Fale novamente.")
+      }
     }
     speechRecognitionRef.current = recognition
+    voiceResultRef.current = false
     setSearchError("")
     setAiMessage("Pode falar o alimento e a quantidade, por exemplo: banana 150 gramas.")
     setListening(true)
@@ -599,14 +616,22 @@ export default function FoodCalculator({
             <button
               type="button"
               onClick={startVoiceInput}
+              disabled={processingVoice}
               aria-pressed={listening}
-              className={`rounded-full px-4 py-2.5 text-xs font-bold text-white transition ${
-                listening
-                  ? "animate-pulse bg-[#b92e53]"
-                  : "bg-[#52642f] hover:bg-[#435326]"
+              aria-busy={processingVoice}
+              className={`rounded-full px-4 py-2.5 text-xs font-bold text-white transition disabled:cursor-wait disabled:opacity-70 ${
+                processingVoice
+                  ? "animate-pulse bg-[#6950a8]"
+                  : listening
+                    ? "animate-pulse bg-[#b92e53]"
+                    : "bg-[#52642f] hover:bg-[#435326]"
               }`}
             >
-              {listening ? "Ouvindo… toque para parar" : "🎙️ Falar alimento"}
+              {processingVoice
+                ? "Analisando fala…"
+                : listening
+                  ? "Parar e analisar"
+                  : "🎙️ Falar alimento"}
             </button>
             <button
               type="button"
