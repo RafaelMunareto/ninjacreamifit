@@ -177,7 +177,12 @@ async function searchFatSecret(query, barcode, limit) {
       signal: AbortSignal.timeout(5000),
     })
     if (!response.ok) throw new Error(`FatSecret ${response.status}`)
-    return response.json()
+    const data = await response.json()
+    if (data.error)
+      throw new Error(
+        `FatSecret ${data.error.code || "error"}: ${data.error.message || "resposta inválida"}`,
+      )
+    return data
   }
   let ids
   if (barcode) {
