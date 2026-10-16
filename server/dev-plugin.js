@@ -1,3 +1,4 @@
+import foodHandler from "./foods.js"
 import { loadEnv } from "vite"
 import { resolve } from "node:path"
 import { createFileStorage } from "./storage.js"
@@ -21,7 +22,8 @@ export default function creamiServer() {
       const handler = createHttpHandler(() => service, { secureCookies: false })
       server.middlewares.use((request, response, next) => {
         const pathname = request.url?.split("?")[0]
-        if (pathname === "/api/creami" || pathname === "/api/image")
+        if (pathname === "/api/foods") void foodHandler(request, response)
+        else if (pathname === "/api/creami" || pathname === "/api/image")
           void handler(request, response)
         else next()
       })

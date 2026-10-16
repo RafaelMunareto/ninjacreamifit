@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
+import { useDeferredValue, useEffect, useRef, useState } from "react"
 import type { FoodReference, LocalFood, Nutrition } from "../types"
 import {
   calculateNutrition,
@@ -6,7 +6,9 @@ import {
   foodReferences,
   hasCompleteNutrition,
   loadFoodCatalog,
-  searchFoods,
+  searchFoodApi,
+  restoreApiFoods,
+  searchFoodsWithFallback,
 } from "../lib/nutrition.js"
 import Icon from "./Icon"
 
@@ -41,25 +43,41 @@ export default function FoodCalculator({
   const initial = useRef(initialItems).current
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [items, setItems] = useState<FoodLine[]>([])
-  const [source, setSource] = useState("all")
+  const [source, setSource] = useState("TBCA")
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)
   const [limit, setLimit] = useState(20)
+  const [results, setResults] =
+    useState<Awaited<ReturnType<typeof searchFoodsWithFallback>>>({
+      foods: [],
+      total: 0,
+      source: "TBCA",
+      fallback: false,
+    })
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState("")
   const [error, setError] = useState("")
   const [restoreError, setRestoreError] = useState("")
   const [retry, setRetry] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     setError("")
     setRestoreError("")
     void loadFoodCatalog()
-      .then((data) => {
+      .then(async (data) => {
+        const missing = initial
+          .filter((item) => !data.byId.has(item.foodId))
+          .map((item) => item.foodId)
+        const restoredFoods = await restoreApiFoods(missing, controller.signal)
+        const available = new Map(data.byId)
+        for (const food of restoredFoods) available.set(food.id, food)
         if (cancelled) return
         setCatalog(data)
         const restored: FoodLine[] = []
         for (const reference of initial) {
-          const food = data.byId.get(reference.foodId)
+          const food = available.get(reference.foodId)
           if (!food || !hasCompleteNutrition(food)) {
             setRestoreError(
               "Um alimento salvo não está disponível para cálculo nesta base. Os ingredientes e macros da receita foram preservados.",
@@ -83,16 +101,48 @@ export default function FoodCalculator({
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [initial, onRestore, retry])
 
-  const results = useMemo(
-    () =>
-      catalog
-        ? searchFoods(catalog, deferredQuery, limit, source)
-        : { foods: [], total: 0 },
-    [catalog, deferredQuery, limit, source],
-  )
+  useEffect(() => {
+    if (!catalog) return
+    const controller = new AbortController()
+    let active = true
+    setSearchError("")
+    setResults({ foods: [], total: 0, source: "TBCA", fallback: false })
+    const valid = deferredQuery.trim().length >= 2
+    setSearching(valid)
+    const timer = window.setTimeout(
+      () => {
+        void searchFoodsWithFallback(
+          catalog,
+          deferredQuery,
+          limit,
+          source,
+          (term, count) => searchFoodApi(term, count, controller.signal),
+        )
+          .then((data) => {
+            if (active) setResults(data)
+          })
+          .catch(() => {
+            if (active)
+              setSearchError(
+                "A busca complementar está indisponível. Tente outro nome ou preencha manualmente.",
+              )
+          })
+          .finally(() => {
+            if (active) setSearching(false)
+          })
+      },
+      valid ? 300 : 0,
+    )
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [catalog, deferredQuery, limit, source])
   const publish = (updated: FoodLine[]) => {
     setItems(updated)
     onChange(
@@ -167,10 +217,10 @@ export default function FoodCalculator({
         <>
           <label className="mt-5 block">
             <span className="mb-2 block text-sm font-extrabold">
-              Base de alimentos
+              Prioridade da busca
             </span>
             <select
-              aria-label="Base de alimentos"
+              aria-label="Prioridade da busca"
               className="form-input"
               value={source}
               onChange={(event) => {
@@ -178,9 +228,8 @@ export default function FoodCalculator({
                 setLimit(20)
               }}
             >
-              <option value="all">Todas as bases</option>
-              <option value="TBCA">TBCA</option>
-              <option value="IBGE">IBGE</option>
+              <option value="TBCA">TBCA primeiro</option>
+              <option value="IBGE">IBGE primeiro</option>
             </select>
           </label>
           <label className="mt-5 block">
@@ -212,11 +261,24 @@ export default function FoodCalculator({
           )}
           {query.trim().length >= 2 && (
             <p role="status" className="mt-3 text-xs text-[#8a776b]">
-              {results.total
-                ? `${results.total.toLocaleString("pt-BR")} alimentos encontrados`
-                : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
+              {searching
+                ? "Buscando alimento…"
+                : searchError
+                  ? searchError
+                  : results.total
+                    ? `${results.total.toLocaleString("pt-BR")} alimentos encontrados`
+                    : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
             </p>
           )}
+          {!searching &&
+            !searchError &&
+            results.fallback &&
+            results.total > 0 && (
+              <p role="status" className="mt-2 text-xs text-[#78665b]">
+                Resultados da busca complementar:{" "}
+                {results.source === "IBGE" ? "da API IBGE" : "da TBCA"}.
+              </p>
+            )}
           {!!results.foods.length && (
             <ul
               aria-label="Resultados de alimentos"
@@ -365,7 +427,8 @@ export default function FoodCalculator({
         >
           tabela-taco-api
         </a>
-        . A busca e os cálculos acontecem neste aparelho. As bases podem
+        . A busca tenta a TBCA primeiro e consulta a API IBGE do site quando
+        necessário. O cálculo por peso acontece neste aparelho. As bases podem
         apresentar valores diferentes para alimentos semelhantes.
       </p>
     </section>

@@ -20,12 +20,10 @@ let loading
 /** @returns {Promise<FoodCatalog>} */
 export function loadFoodCatalog() {
   if (!loading)
-    loading = Promise.all(
-      ["tbca", "ibge"].map(async (source) => {
-        const response = await fetch(
-          `${import.meta.env.BASE_URL}data/${source}-foods-v1.json`,
-          { cache: "force-cache" },
-        )
+    loading = fetch(`${import.meta.env.BASE_URL}data/tbca-foods-v1.json`, {
+      cache: "force-cache",
+    })
+      .then(async (response) => {
         if (!response.ok)
           throw new Error("A tabela de alimentos não está disponível.")
         const data = await response.json()
@@ -36,15 +34,8 @@ export function loadFoodCatalog() {
           !data.foods.length
         )
           throw new Error("Tabela de alimentos inválida.")
-        return data.foods.map(
-          /** @param {LocalFood} food */ (food) => ({
-            ...food,
-            source: data.source.name,
-          }),
-        )
-      }),
-    )
-      .then((sources) => createFoodCatalog(sources.flat()))
+        return createFoodCatalog(data.foods)
+      })
       .catch((error) => {
         loading = undefined
         throw error
@@ -144,3 +135,67 @@ export const foodReferences = (items) =>
 /** @param {FoodLine[]} items */
 export const foodDescriptions = (items) =>
   items.map((item) => `${item.grams.replace(".", ",")} g de ${item.food.name}`)
+
+/** @typedef {{foods: LocalFood[], total: number, source: string, fallback: boolean}} FoodResults */
+/** @param {string} query @param {number} limit @param {AbortSignal} [signal] */
+export async function searchFoodApi(query, limit, signal) {
+  const params = new URLSearchParams({ q: query, limit: String(limit) })
+  const response = await fetch(
+    `${import.meta.env.BASE_URL}api/foods?${params}`,
+    { signal },
+  )
+  if (!response.ok)
+    throw new Error(
+      "A busca complementar está indisponível. Tente novamente ou preencha manualmente.",
+    )
+  const data = await response.json()
+  if (!Array.isArray(data.foods) || !Number.isInteger(data.total))
+    throw new Error("Resposta de alimentos inválida.")
+  return /** @type {{foods: LocalFood[], total: number}} */ (data)
+}
+
+/** @param {string[]} ids @param {AbortSignal} [signal] @returns {Promise<LocalFood[]>} */
+export async function restoreApiFoods(ids, signal) {
+  if (!ids.length) return []
+  const response = await fetch(
+    `${import.meta.env.BASE_URL}api/foods?${new URLSearchParams({ ids: ids.join(",") })}`,
+    { signal },
+  )
+  if (!response.ok)
+    throw new Error("Não foi possível recuperar os alimentos salvos.")
+  const data = await response.json()
+  if (!Array.isArray(data.foods))
+    throw new Error("Resposta de alimentos inválida.")
+  return data.foods
+}
+
+/** @param {FoodCatalog} catalog @param {string} query @param {number} limit @param {string} source @param {(query: string, limit: number) => Promise<{foods: LocalFood[], total: number}>} remote @returns {Promise<FoodResults>} */
+export async function searchFoodsWithFallback(
+  catalog,
+  query,
+  limit,
+  source,
+  remote,
+) {
+  if (normalize(query).length < 2)
+    return { foods: [], total: 0, source: "TBCA", fallback: false }
+  const local = searchFoods(catalog, query, limit, "TBCA")
+  if (source !== "IBGE" && local.foods.some(hasCompleteNutrition))
+    return { ...local, source: "TBCA", fallback: false }
+  let api
+  try {
+    api = await remote(query, limit)
+  } catch (error) {
+    if (local.foods.some(hasCompleteNutrition))
+      return { ...local, source: "TBCA", fallback: true }
+    throw error
+  }
+  if (!api.total && local.total)
+    return { ...local, source: "TBCA", fallback: source === "IBGE" }
+  if (
+    api.foods.some(hasCompleteNutrition) ||
+    !local.foods.some(hasCompleteNutrition)
+  )
+    return { ...api, source: "IBGE", fallback: source !== "IBGE" }
+  return { ...local, source: "TBCA", fallback: true }
+}

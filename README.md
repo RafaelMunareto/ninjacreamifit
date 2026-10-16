@@ -13,9 +13,9 @@ React + Vite com uma API JavaScript e um banco **SQLite** no mesmo projeto da Ve
 
 ## Alimentos e cálculo por peso
 
-No formulário, a pessoa busca um alimento na **bases locais TBCA e IBGE**, com filtro por fonte, escolhe o item e informa seu peso em gramas. Calorias, proteínas, carboidratos e gorduras do pote são somados automaticamente. Os alimentos e pesos são preservados para a edição posterior; o preenchimento manual continua disponível.
+No formulário, a pessoa busca um alimento na **TBCA local**, com consulta complementar à API IBGE quando não houver resultado com os quatro nutrientes completos, escolhe o item e informa seu peso em gramas. Calorias, proteínas, carboidratos e gorduras do pote são somados automaticamente. Os alimentos e pesos são preservados para a edição posterior; o preenchimento manual continua disponível.
 
-A busca e os cálculos acontecem no navegador usando `public/data/tbca-foods-v1.json`, um arquivo estático do próprio site. Não há serviço externo de nutrição, chave de API, conta de provedor ou consulta ao GitHub durante o uso. A tabela só é baixada ao abrir o formulário; depois de carregada, a busca e os cálculos continuam funcionando sem rede. Publicar receitas e ver as atualizações de outros aparelhos continuam exigindo conexão com a API do site.
+A busca tenta primeiro `public/data/tbca-foods-v1.json`, carregado somente ao abrir o formulário. Se não encontrar alimento com macros completos, consulta `/api/foods?q=...&limit=20`, que usa os dados IBGE do repositório no servidor do próprio site. Não exige conta, chave ou hospedagem PHP/Laravel. A busca TBCA e o cálculo por peso funcionam sem rede após carregar a tabela; consultar a API complementar exige conexão. Publicar receitas e ver as atualizações de outros aparelhos continuam exigindo conexão com a API do site.
 
 O arquivo contém **5.668 alimentos**, sendo **5.654 com os quatro valores necessários ao cálculo**. A origem é o [arquivo alimentos.txt de raul-rznd](https://github.com/raul-rznd/web-scraping-tbca/blob/main/alimentos.txt), uma extração da Tabela Brasileira de Composição de Alimentos. A cópia incluída registra o commit de origem e o SHA-256 do conteúdo original. O arquivo original tem cerca de 17,5 MB; a versão reduzida do site tem cerca de 1,17 MB e mantém apenas identificação, descrição, grupo e os nutrientes utilizados.
 
@@ -89,8 +89,12 @@ Os testes cobrem o fluxo HTTP entre perfis independentes, autorização, fotos, 
 
 ### Base IBGE adicional
 
-Incluímos os dados do [tabela-taco-api](https://github.com/renandspedrosa/tabela-taco-api), fixados no commit `c5eccf85aabf7bfaea9f9033e38b0a74665770c4`. Apesar do nome do repositório, essa versão contém IBGE, não a tabela TACO/UNICAMP. Não requer Laravel, conta ou API externa: `public/data/ibge-foods-v1.json` é carregado junto à TBCA apenas ao abrir o formulário.
+Incluímos os dados do [tabela-taco-api](https://github.com/renandspedrosa/tabela-taco-api), fixados no commit `c5eccf85aabf7bfaea9f9033e38b0a74665770c4`. Apesar do nome do repositório, essa versão contém IBGE, não a tabela TACO/UNICAMP. Não requer Laravel, conta ou API externa: `public/data/ibge-foods-v1.json` é lido pela função `/api/foods` no servidor somente quando necessário.
 
 São 1.971 combinações de alimento/preparação, com 1.312 registros completos para cálculo. Valores ausentes (`-`, `NA`, vazios) permanecem desconhecidos e impedem selecionar o registro para cálculo; zero explícito é aceito. Cada preparação tem identificador próprio (`IBGE:<código>:<preparação>`), mantendo os códigos TBCA anteriores. Valores por 100 g da parte comestível, conforme a [publicação do IBGE](https://biblioteca.ibge.gov.br/visualizacao/livros/liv50002.pdf); cada base mantém seus valores separados.
 
 Para regenerar: `node scripts/import-ibge.mjs` (ou forneça o caminho do SQL original como argumento). O importador lê somente literais dos INSERTs, sem executar o SQL, e registra o SHA-256 da fonte no JSON. O SQL bruto não é distribuído no aplicativo.
+
+### Busca complementar automática
+
+A prioridade padrão é TBCA → API IBGE → preenchimento manual se não houver dados completos. É possível inverter a prioridade para IBGE → TBCA. A API JavaScript reproduz a consulta de alimentos do repositório usando os dados importados; não executa PHP e não depende de uma URL externa. A busca possui atraso de 300 ms, cancela consultas antigas e informa falhas de rede. Os pesos e códigos permanecem no SQLite; ao editar, `/api/foods?ids=IBGE:...` recupera os alimentos IBGE selecionados. `/api/foods` aceita somente GET, valida consulta/códigos e não modifica receitas. Para atualizar os dados, regenere a base com o importador e publique o projeto.
