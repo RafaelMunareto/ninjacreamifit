@@ -209,9 +209,7 @@ export default function FoodCalculator({
         <h3 className="font-display text-xl font-black">
           Alimentos e peso do pote
         </h3>
-        <span className="rounded-full bg-[#eef8dd] px-3 py-1 text-[11px] font-extrabold text-[#52642f]">
-          TBCA + IBGE
-        </span>
+       
       </div>
       {!catalog && !error && (
         <p role="status" className="mt-4 text-sm text-[#78665b]">
