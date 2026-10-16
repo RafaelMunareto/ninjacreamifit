@@ -29,6 +29,11 @@ type FoodLine = {
   grams: string
   unit: "g" | "ml"
 }
+type AiSuggestion = {
+  brand: string
+  quantity?: number
+  unit?: "g" | "ml"
+}
 type Catalog = Awaited<ReturnType<typeof loadFoodCatalog>>
 type Props = {
   initialItems: FoodReference[]
@@ -71,6 +76,7 @@ export default function FoodCalculator({
   const [scanning, setScanning] = useState(false)
   const [identifyingPhoto, setIdentifyingPhoto] = useState(false)
   const [aiMessage, setAiMessage] = useState("")
+  const [aiSuggestion, setAiSuggestion] = useState<AiSuggestion | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -174,10 +180,13 @@ export default function FoodCalculator({
   }
   const add = (food: LocalFood) => {
     if (items.length >= 50 || !hasCompleteNutrition(food)) return
+    const quantity = aiSuggestion?.quantity ?? 100
+    const unit = aiSuggestion?.unit ?? "g"
     publish([
       ...items,
-      { key: crypto.randomUUID(), food, grams: "100", unit: "g" },
+      { key: crypto.randomUUID(), food, grams: String(quantity), unit },
     ])
+    setAiSuggestion(null)
     setQuery("")
     setLimit(20)
   }
@@ -277,10 +286,24 @@ export default function FoodCalculator({
         )
       if (typeof result.food !== "string" || result.food.trim().length < 2)
         throw new Error("A IA não conseguiu reconhecer o alimento na foto.")
+      const quantity = Number(result.quantity)
+      const suggestion = {
+        brand: typeof result.brand === "string" ? result.brand.trim() : "",
+        ...(Number.isFinite(quantity) && quantity > 0 && quantity <= 10000
+          ? { quantity, unit: result.unit === "ml" ? "ml" : "g" }
+          : {}),
+      } satisfies AiSuggestion
+      setAiSuggestion(suggestion)
       setQuery(result.food)
       requestAnimationFrame(() => searchInputRef.current?.focus())
+      const details = [
+        suggestion.brand && `marca ${suggestion.brand}`,
+        suggestion.quantity && `${suggestion.quantity} ${suggestion.unit}`,
+      ].filter(Boolean)
       setAiMessage(
-        "Alimento identificado e colocado no campo acima: " + result.food,
+        "Alimento identificado e colocado no campo acima: " +
+          result.food +
+          (details.length ? ` · ${details.join(" · ")}` : ""),
       )
     } catch (cause) {
       setSearchError(

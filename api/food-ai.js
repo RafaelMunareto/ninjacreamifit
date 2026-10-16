@@ -38,7 +38,7 @@ async function analyzeWithGemini(imageData) {
         {
           parts: [
             {
-              text: 'Identifique o alimento principal na foto. Responda somente JSON no formato {"food":"nome curto","confidence":0.0}. Não invente marca ou nutrientes. Use português do Brasil.',
+              text: 'Identifique o alimento principal na foto e, se estiver visível, a marca e a quantidade/volume indicados na embalagem. Responda somente JSON no formato {"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}. Use quantity null quando não for possível ler a quantidade. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
             },
             {
               inline_data: {
@@ -120,7 +120,7 @@ export default async function handler(request, response) {
               {
                 role: "system",
                 content:
-                  'Identifique o alimento principal na foto. Responda somente JSON no formato {"food":"nome curto","confidence":0.0}. Não invente marca ou nutrientes.',
+                  'Identifique o alimento principal na foto e, se estiver visível, a marca e a quantidade/volume indicados na embalagem. Responda somente JSON no formato {"food":"nome curto","brand":"marca ou vazio","quantity":0,"unit":"g ou ml","confidence":0.0}. Use quantity null quando não for possível ler a quantidade. Não invente marca, quantidade ou nutrientes. Use português do Brasil.',
               },
               {
                 role: "user",
@@ -158,7 +158,21 @@ export default async function handler(request, response) {
     }
     response.statusCode = 200
     response.setHeader("Cache-Control", "no-store")
-    response.end(JSON.stringify({ food }))
+    const brand =
+      typeof parsed.brand === "string" && parsed.brand.trim().length <= 100
+        ? parsed.brand.trim()
+        : ""
+    const quantity = Number(parsed.quantity)
+    const unit = parsed.unit === "ml" ? "ml" : "g"
+    response.end(
+      JSON.stringify({
+        food,
+        brand,
+        ...(Number.isFinite(quantity) && quantity > 0 && quantity <= 10000
+          ? { quantity, unit }
+          : {}),
+      }),
+    )
   } catch (error) {
     console.error(
       "food-ai provider error",
