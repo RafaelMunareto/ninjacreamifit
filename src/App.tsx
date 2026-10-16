@@ -449,7 +449,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="relative mx-auto aspect-square w-full max-w-[420px] sm:aspect-[14/13] sm:max-w-[560px] lg:aspect-auto lg:h-[520px]">
+        <div className="relative mx-auto mr-3 aspect-square w-[calc(100%_-_0.75rem)] max-w-[420px] sm:mr-auto sm:aspect-[14/13] sm:w-full sm:max-w-[560px] lg:aspect-auto lg:h-[520px]">
           <div className="absolute inset-5 rotate-3 rounded-[48%_52%_42%_58%/55%_42%_58%_45%] bg-[#b8e46c] sm:inset-8" />
           <div className="absolute inset-0 -rotate-3 overflow-hidden rounded-[46%_54%_56%_44%/47%_42%_58%_53%] border-[6px] border-white shadow-[0_30px_80px_rgba(74,49,32,0.18)] sm:border-[10px]">
             <img
