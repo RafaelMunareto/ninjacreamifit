@@ -139,7 +139,10 @@ export const foodDescriptions = (items) =>
 /** @typedef {{foods: LocalFood[], total: number, source: string, fallback: boolean}} FoodResults */
 /** @param {string} query @param {number} limit @param {AbortSignal} [signal] */
 export async function searchFoodApi(query, limit, signal) {
-  const params = new URLSearchParams({ q: query, limit: String(limit) })
+  const params = new URLSearchParams({
+    [/^\d{8,14}$/.test(query.trim()) ? "barcode" : "q"]: query,
+    limit: String(limit),
+  })
   const response = await fetch(
     `${import.meta.env.BASE_URL}api/foods?${params}`,
     { signal },

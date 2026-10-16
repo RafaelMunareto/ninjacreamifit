@@ -30,6 +30,7 @@ export function createFoodHandler(load = getCatalog) {
       const url = new URL(request.url, "http://localhost")
       const ids = url.searchParams.get("ids")
       const query = url.searchParams.get("q") || ""
+      const barcode = url.searchParams.get("barcode") || ""
       const limit = Number(url.searchParams.get("limit") || 20)
       if (
         ids !== null
@@ -38,12 +39,13 @@ export function createFoodHandler(load = getCatalog) {
             !ids
               .split(",")
               .every((id) =>
-                /^(?:IBGE:\d{1,10}:(?:na|\d{1,3})|OFF:[A-Za-z0-9._-]{1,80})$/.test(
+                /^(?:IBGE:\d{1,10}:(?:na|\d{1,3})|OFF:[A-Za-z0-9._-]{1,80}|FATSECRET:\d+)$/.test(
                   id,
                 ),
               )
-          : query.trim().length < 2 ||
+          : (!barcode && query.trim().length < 2) ||
             query.length > 100 ||
+            (barcode && !/^\d{8,14}$/.test(barcode)) ||
             !Number.isInteger(limit) ||
             limit < 1 ||
             limit > 2000
@@ -56,11 +58,19 @@ export function createFoodHandler(load = getCatalog) {
       const result =
         ids !== null
           ? {
-              foods: [...new Set(ids.split(","))]
-                .map((id) => catalog.byId.get(id))
-                .filter(Boolean),
+              foods: (
+                await Promise.all(
+                  [...new Set(ids.split(","))].map(
+                    async (id) =>
+                      catalog.byId.get(id) ||
+                      (id.startsWith("FATSECRET:")
+                        ? (await searchFatSecret("", id.slice(11), 1)).foods[0]
+                        : null),
+                  ),
+                )
+              ).filter(Boolean),
             }
-          : await searchAllSources(catalog, query, limit)
+          : await searchAllSources(catalog, query, barcode, limit)
       response.statusCode = 200
       response.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600")
       response.end(JSON.stringify({ ...result, source: "IBGE" }))
@@ -74,9 +84,9 @@ export function createFoodHandler(load = getCatalog) {
   }
 }
 
-async function searchOpenFoodFacts(query, limit) {
+async function searchOpenFoodFacts(query, limit, barcode = "") {
   const endpoint = new URL("https://world.openfoodfacts.org/api/v2/search")
-  endpoint.searchParams.set("search_terms", query)
+  endpoint.searchParams.set("search_terms", barcode || query)
   endpoint.searchParams.set("page_size", String(Math.min(limit, 40)))
   endpoint.searchParams.set("fields", "code,product_name,categories,nutriments")
   const response = await fetch(endpoint, {
@@ -116,16 +126,82 @@ async function searchOpenFoodFacts(query, limit) {
   return { foods, total: foods.length }
 }
 
-async function searchAllSources(catalog, query, limit) {
-  const [local, openFoodFacts] = await Promise.all([
-    Promise.resolve(searchFoods(catalog, query, limit)),
-    searchOpenFoodFacts(query, limit).catch(() => ({ foods: [], total: 0 })),
+async function searchFatSecret(query, barcode, limit) {
+  if (!process.env.FATSECRET_CLIENT_ID || !process.env.FATSECRET_CLIENT_SECRET)
+    return { foods: [], total: 0 }
+  const auth = Buffer.from(
+    `${process.env.FATSECRET_CLIENT_ID}:${process.env.FATSECRET_CLIENT_SECRET}`,
+  ).toString("base64")
+  const tokenResponse = await fetch(
+    "https://oauth.fatsecret.com/connect/token",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "grant_type=client_credentials&scope=basic",
+      signal: AbortSignal.timeout(5000),
+    },
+  )
+  if (!tokenResponse.ok)
+    throw new Error(`FatSecret auth ${tokenResponse.status}`)
+  const token = (await tokenResponse.json()).access_token
+  const endpoint = new URL(
+    "https://platform.fatsecret.com/rest/foods/search/v1",
+  )
+  endpoint.searchParams.set("format", "json")
+  endpoint.searchParams.set("max_results", String(Math.min(limit, 50)))
+  endpoint.searchParams.set("search_expression", barcode || query)
+  const response = await fetch(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(5000),
+  })
+  if (!response.ok) throw new Error(`FatSecret ${response.status}`)
+  const data = await response.json()
+  const foods = (Array.isArray(data.foods?.food) ? data.foods.food : [])
+    .map((item) => {
+      const text = String(item.food_description || "")
+      const number = (label) => {
+        const value = Number(
+          text.match(new RegExp(`${label}:\\s*([\\d.]+)`, "i"))?.[1],
+        )
+        return Number.isFinite(value) ? value : null
+      }
+      return {
+        id: `FATSECRET:${String(item.food_id || "")}`,
+        name: String(item.food_name || "").trim(),
+        category: String(item.food_type || "FatSecret"),
+        source: "FatSecret",
+        calories: number("Calories"),
+        protein: number("Protein"),
+        carbs: number("Carbs"),
+        fat: number("Fat"),
+      }
+    })
+    .filter((item) => item.name && /^FATSECRET:\d+$/.test(item.id))
+  return { foods, total: foods.length }
+}
+
+async function searchAllSources(catalog, query, barcode, limit) {
+  const [local, openFoodFacts, fatSecret] = await Promise.all([
+    Promise.resolve(
+      barcode ? { foods: [], total: 0 } : searchFoods(catalog, query, limit),
+    ),
+    searchOpenFoodFacts(query, limit, barcode).catch(() => ({
+      foods: [],
+      total: 0,
+    })),
+    searchFatSecret(query, barcode, limit).catch(() => ({
+      foods: [],
+      total: 0,
+    })),
   ])
-  const foods = [...local.foods, ...openFoodFacts.foods]
+  const foods = [...local.foods, ...openFoodFacts.foods, ...fatSecret.foods]
   return {
     foods: foods.slice(0, limit),
     total: foods.length,
-    sources: ["IBGE", "Open Food Facts"],
+    sources: ["TBCA", "IBGE", "Open Food Facts", "FatSecret"],
   }
 }
 export default createFoodHandler()

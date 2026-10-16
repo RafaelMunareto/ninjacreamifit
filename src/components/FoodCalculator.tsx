@@ -56,6 +56,8 @@ export default function FoodCalculator({
     })
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState("")
+  const [scanning, setScanning] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const [error, setError] = useState("")
   const [restoreError, setRestoreError] = useState("")
   const [retry, setRetry] = useState(0)
@@ -158,6 +160,51 @@ export default function FoodCalculator({
     setLimit(20)
   }
 
+  const scanBarcode = async () => {
+    const Detector = (window as unknown as {
+      BarcodeDetector?: new (
+        options?: object,
+      ) => {
+        detect: (
+          video: HTMLVideoElement,
+        ) => Promise<Array<{ rawValue: string }>>
+      }
+    }).BarcodeDetector
+    if (!Detector) {
+      setSearchError(
+        "Este navegador não oferece leitura de código de barras. Digite o código no campo de busca.",
+      )
+      return
+    }
+    setScanning(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+      })
+      if (!videoRef.current) return
+      videoRef.current.srcObject = stream
+      await videoRef.current.play()
+      const detector = new Detector({
+        formats: ["ean_13", "ean_8", "upc_a", "upc_e"],
+      })
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const found = await detector.detect(videoRef.current)
+        if (found[0]?.rawValue) {
+          setQuery(found[0].rawValue)
+          break
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 100))
+      }
+      stream.getTracks().forEach((track) => track.stop())
+    } catch {
+      setSearchError(
+        "Não foi possível acessar a câmera. Confira a permissão ou digite o código manualmente.",
+      )
+    } finally {
+      setScanning(false)
+    }
+  }
+
   return (
     <section
       aria-label="Calculadora de alimentos"
@@ -234,8 +281,24 @@ export default function FoodCalculator({
                   if (event.key === "Enter") event.preventDefault()
                 }}
               />
+              <button
+                type="button"
+                onClick={() => void scanBarcode()}
+                className="shrink-0 rounded-full bg-[#ef4f78] px-3 py-2 text-xs font-bold text-white"
+              >
+                {scanning ? "Lendo…" : "Ler código"}
+              </button>
             </div>
           </label>
+          {scanning && (
+            <video
+              ref={videoRef}
+              muted
+              playsInline
+              className="mt-3 w-full rounded-2xl bg-black"
+              aria-label="Câmera para leitura do código de barras"
+            />
+          )}
           {query.trim().length < 2 && (
             <p className="mt-2 text-xs text-[#8a776b]">
               Digite pelo menos 2 letras. Você pode combinar palavras, como

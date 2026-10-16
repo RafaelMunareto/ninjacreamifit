@@ -16,7 +16,7 @@ export interface FoodReference {
 }
 
 export interface LocalFood {
-  source?: "TBCA" | "IBGE" | "Open Food Facts"
+  source?: "TBCA" | "IBGE" | "Open Food Facts" | "FatSecret"
   id: string
   name: string
   category: string
