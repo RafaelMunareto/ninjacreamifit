@@ -39,6 +39,7 @@ const SCHEMA = `
     foodId TEXT NOT NULL,
     grams REAL NOT NULL CHECK (grams > 0 AND grams <= 10000),
     unit TEXT NOT NULL DEFAULT 'g' CHECK (unit IN ('g', 'ml')),
+    customFood TEXT,
     PRIMARY KEY (recipeId, position)
   );
   CREATE TABLE foodRecipes (
@@ -167,13 +168,14 @@ export async function encodeSqlite(state) {
       insertRows(
         database,
         "foodItems",
-        ["recipeId", "position", "foodId", "grams", "unit"],
+        ["recipeId", "position", "foodId", "grams", "unit", "customFood"],
         recipe.foodItems.map((item, position) => [
           recipe.id,
           position,
           item.foodId,
           item.grams,
           item.unit === "ml" ? "ml" : "g",
+          item.food ? JSON.stringify(item.food) : null,
         ]),
       )
     }
@@ -267,15 +269,20 @@ export async function decodeSqlite(bytes) {
         byRecipe.get(row.recipeId).foodItems = []
       const foodColumns = select(database, "PRAGMA table_info(foodItems)")
       const hasUnit = foodColumns.some((column) => column.name === "unit")
+      const hasCustomFood = foodColumns.some((column) => column.name === "customFood")
       const foodRows = select(
         database,
         `SELECT recipeId, foodId, grams${
           hasUnit ? ", unit" : ""
-        } FROM foodItems ORDER BY position`,
+        }${hasCustomFood ? ", customFood" : ""} FROM foodItems ORDER BY position`,
       )
       for (const row of foodRows) {
         const { recipeId, ...item } = row
         if (item.unit !== "ml") delete item.unit
+        if (item.customFood) {
+          item.food = JSON.parse(item.customFood)
+        }
+        delete item.customFood
         byRecipe.get(recipeId).foodItems.push(item)
       }
     }

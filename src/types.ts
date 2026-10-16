@@ -14,10 +14,11 @@ export interface FoodReference {
   foodId: string
   grams: number
   unit?: "g" | "ml"
+  food?: LocalFood
 }
 
 export interface LocalFood {
-  source?: "TBCA" | "IBGE" | "Open Food Facts" | "FatSecret"
+  source?: "TBCA" | "IBGE" | "Open Food Facts" | "FatSecret" | "Manual"
   id: string
   name: string
   category: string

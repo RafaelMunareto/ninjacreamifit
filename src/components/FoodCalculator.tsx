@@ -98,6 +98,16 @@ export default function FoodCalculator({
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([])
   const [listening, setListening] = useState(false)
   const [processingVoice, setProcessingVoice] = useState(false)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualFood, setManualFood] = useState({
+    name: "",
+    quantity: "100",
+    unit: "g" as "g" | "ml",
+    calories: "",
+    protein: "",
+    carbs: "",
+    fat: "",
+  })
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -117,7 +127,7 @@ export default function FoodCalculator({
     void loadFoodCatalog()
       .then(async (data) => {
         const missing = initial
-          .filter((item) => !data.byId.has(item.foodId))
+          .filter((item) => !item.food && !data.byId.has(item.foodId))
           .map((item) => item.foodId)
         const restoredFoods = await restoreApiFoods(missing, controller.signal)
         const available = new Map(data.byId)
@@ -126,7 +136,7 @@ export default function FoodCalculator({
         setCatalog(data)
         const restored: FoodLine[] = []
         for (const reference of initial) {
-          const food = available.get(reference.foodId)
+          const food = reference.food || available.get(reference.foodId)
           if (!food || !hasCompleteNutrition(food)) {
             setRestoreError(
               "Um alimento salvo não está disponível para cálculo nesta base. Os ingredientes e macros da receita foram preservados.",
@@ -201,6 +211,38 @@ export default function FoodCalculator({
       foodDescriptions(updated),
       updated.length ? calculateNutrition(updated) : null,
     )
+  }
+  const addManualFood = () => {
+    const values = [
+      manualFood.quantity,
+      manualFood.calories,
+      manualFood.protein,
+      manualFood.carbs,
+      manualFood.fat,
+    ].map((value) => Number(value.replace(",", ".")))
+    if (
+      manualFood.name.trim().length < 2 ||
+      values.some((value) => !Number.isFinite(value) || value < 0) ||
+      values[0] <= 0 ||
+      values[0] > 10000
+    ) {
+      setSearchError("Informe nome, quantidade e todos os macros do alimento.")
+      return
+    }
+    const food: LocalFood = {
+      id: `CUSTOM:${crypto.randomUUID()}`,
+      name: manualFood.name.trim(),
+      category: "Alimento informado pelo usuário",
+      source: "Manual",
+      calories: values[1],
+      protein: values[2],
+      carbs: values[3],
+      fat: values[4],
+    }
+    add(food, { food: food.name, brand: "", quantity: values[0], unit: manualFood.unit, matchedFood: food })
+    setManualFood({ name: "", quantity: "100", unit: "g", calories: "", protein: "", carbs: "", fat: "" })
+    setManualOpen(false)
+    setSearchError("")
   }
   const suggestVoiceFood = async (transcript: string) => {
     let spokenFood = transcript
@@ -759,6 +801,84 @@ export default function FoodCalculator({
                     : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
             </p>
           )}
+          <div className="mt-3 rounded-2xl border border-[#eadfd5] bg-[#fffaf3] p-3">
+            <button
+              type="button"
+              onClick={() => setManualOpen((value) => !value)}
+              className="text-sm font-extrabold text-[#52642f]"
+              aria-expanded={manualOpen}
+            >
+              {manualOpen ? "− Fechar alimento manual" : "+ Não encontrou? Incluir alimento manualmente"}
+            </button>
+            {manualOpen && (
+              <div className="mt-3 space-y-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold">Nome do alimento</span>
+                  <input
+                    value={manualFood.name}
+                    onChange={(event) => setManualFood((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="Ex.: pasta de amendoim da minha marca"
+                    className="form-input bg-white"
+                  />
+                </label>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                  <label>
+                    <span className="mb-1 block text-xs font-bold">Quantidade</span>
+                    <input
+                      type="number"
+                      min={0.01}
+                      max={10000}
+                      step="any"
+                      value={manualFood.quantity}
+                      onChange={(event) => setManualFood((current) => ({ ...current, quantity: event.target.value }))}
+                      className="form-input bg-white"
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-xs font-bold">Unidade</span>
+                    <select
+                      value={manualFood.unit}
+                      onChange={(event) => setManualFood((current) => ({ ...current, unit: event.target.value === "ml" ? "ml" : "g" }))}
+                      className="form-input bg-white"
+                    >
+                      <option value="g">g</option>
+                      <option value="ml">ml</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="text-xs text-[#78665b]">Informe os nutrientes referentes a 100 g/ml.</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {([
+                    ["calories", "Calorias (kcal)"],
+                    ["protein", "Proteína (g)"],
+                    ["carbs", "Carboidratos (g)"],
+                    ["fat", "Gorduras (g)"],
+                  ] as const).map(([key, label]) => (
+                    <label key={key}>
+                      <span className="mb-1 block text-xs font-bold">{label}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={10000}
+                        step="any"
+                        value={manualFood[key]}
+                        onChange={(event) => setManualFood((current) => ({ ...current, [key]: event.target.value }))}
+                        className="form-input bg-white"
+                      />
+                    </label>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addManualFood}
+                  disabled={items.length >= 50}
+                  className="rounded-lg bg-[#52642f] px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                >
+                  Adicionar alimento
+                </button>
+              </div>
+            )}
+          </div>
           {aiMessage && (
             <p role="status" className="mt-2 text-xs font-bold text-[#52642f]">
               {aiMessage}

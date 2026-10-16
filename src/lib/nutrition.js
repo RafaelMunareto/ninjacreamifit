@@ -150,6 +150,7 @@ export const foodReferences = (items) =>
     foodId: item.food.id,
     grams: Number(item.grams),
     ...(item.unit === "ml" ? { unit: "ml" } : {}),
+    ...(item.food.source === "Manual" ? { food: item.food } : {}),
   }))
 /** @param {FoodLine[]} items */
 export const foodDescriptions = (items) =>

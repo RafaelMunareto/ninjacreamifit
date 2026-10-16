@@ -63,7 +63,7 @@ export function validateRecipe(input, existingImage) {
       if (
         !item ||
         typeof item.foodId !== "string" ||
-        !/^(?:[A-Z]\d{4}[A-Z]|IBGE:\d{1,10}:(?:na|\d{1,3})|OFF:[A-Za-z0-9._-]{1,80}|FATSECRET:\d+)$/.test(
+        !/^(?:[A-Z]\d{4}[A-Z]|IBGE:\d{1,10}:(?:na|\d{1,3})|OFF:[A-Za-z0-9._-]{1,80}|FATSECRET:\d+|CUSTOM:[A-Za-z0-9-]{8,80})$/.test(
           item.foodId,
         ) ||
         typeof item.grams !== "number" ||
@@ -74,10 +74,26 @@ export function validateRecipe(input, existingImage) {
         throw new Error(
           "Informe uma quantidade válida para cada alimento selecionado.",
         )
+      const custom = item.foodId.startsWith("CUSTOM:") ? item.food : undefined
+      if (custom) {
+        if (
+          typeof custom !== "object" ||
+          typeof custom.name !== "string" ||
+          custom.name.trim().length < 2 ||
+          ![custom.calories, custom.protein, custom.carbs, custom.fat].every(
+            (value) =>
+              typeof value === "number" && Number.isFinite(value) && value >= 0,
+          )
+        )
+          throw new Error("Os nutrientes do alimento manual são inválidos.")
+      } else if (item.foodId.startsWith("CUSTOM:")) {
+        throw new Error("O alimento manual precisa dos seus nutrientes.")
+      }
       return {
         foodId: item.foodId,
         grams: item.grams,
         ...(item.unit === "ml" ? { unit: /** @type {"ml"} */ ("ml") } : {}),
+        ...(custom ? { food: custom } : {}),
       }
     })
   }
