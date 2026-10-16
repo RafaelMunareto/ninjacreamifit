@@ -275,6 +275,8 @@ export default function FoodCalculator({
         throw new Error(
           result.error || "Não foi possível identificar o alimento.",
         )
+      if (typeof result.food !== "string" || result.food.trim().length < 2)
+        throw new Error("A IA não conseguiu reconhecer o alimento na foto.")
       setQuery(result.food)
       requestAnimationFrame(() => searchInputRef.current?.focus())
       setAiMessage(

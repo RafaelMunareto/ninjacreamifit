@@ -15,6 +15,15 @@ function parseModelJson(content) {
   return JSON.parse(cleaned || "{}")
 }
 
+const UNKNOWN_FOOD_NAMES = new Set([
+  "nao identificado",
+  "não identificado",
+  "desconhecido",
+  "unknown",
+  "none",
+  "null",
+])
+
 async function analyzeWithGemini(imageData) {
   const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite"
   const endpoint = new URL(
@@ -132,10 +141,14 @@ export default async function handler(request, response) {
       const content = data.choices?.[0]?.message?.content
       parsed = parseModelJson(content)
     }
+    const food = typeof parsed.food === "string" ? parsed.food.trim() : ""
+    const confidence = Number(parsed.confidence)
+    const unknownName = UNKNOWN_FOOD_NAMES.has(food.toLocaleLowerCase("pt-BR"))
     if (
-      typeof parsed.food !== "string" ||
-      parsed.food.trim().length < 2 ||
-      parsed.food.trim().length > 100
+      food.length < 2 ||
+      food.length > 100 ||
+      unknownName ||
+      (Number.isFinite(confidence) && confidence < 0.45)
     ) {
       response.statusCode = 422
       response.end(
@@ -145,7 +158,7 @@ export default async function handler(request, response) {
     }
     response.statusCode = 200
     response.setHeader("Cache-Control", "no-store")
-    response.end(JSON.stringify({ food: parsed.food.trim() }))
+    response.end(JSON.stringify({ food }))
   } catch (error) {
     console.error(
       "food-ai provider error",
