@@ -818,6 +818,12 @@ export default function FoodCalculator({
                   if (event.key === "Enter") event.preventDefault()
                 }}
               />
+              {searching && (
+                <span
+                  aria-hidden="true"
+                  className="size-4 shrink-0 animate-spin rounded-full border-2 border-outline border-t-current text-[#52642f] motion-reduce:animate-none"
+                />
+              )}
             </div>
           </label>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -990,6 +996,28 @@ export default function FoodCalculator({
               {foodNotice}
             </p>
           )}
+          {searching && !results.nextCursor && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-3 flex items-center gap-3 rounded-2xl border border-outline bg-green-soft p-4"
+            >
+              <span
+                aria-hidden="true"
+                className="size-6 shrink-0 animate-spin rounded-full border-[3px] border-outline border-t-current text-[#52642f] motion-reduce:animate-none"
+              />
+              <div>
+                <strong className="block text-sm text-foreground">
+                  Buscando alimentos…
+                </strong>
+                <span className="mt-0.5 block text-xs text-muted">
+                  {results.foods.length
+                    ? "Você já pode selecionar os alimentos encontrados enquanto buscamos mais opções."
+                    : "Aguarde enquanto encontramos as opções para sua busca."}
+                </span>
+              </div>
+            </div>
+          )}
           {searchError && (
             <p
               role="alert"
@@ -998,23 +1026,25 @@ export default function FoodCalculator({
               {searchError}
             </p>
           )}
-          {query.trim().length >= 2 && !searchError && (
-            <p role="status" className="mt-3 text-xs text-muted">
-              {results.foods.length
-                ? `${results.foods.length.toLocaleString("pt-BR")} alimentos carregados${
-                    searching
-                      ? " · buscando mais opções…"
-                      : results.nextCursor
-                        ? " · role a lista para carregar mais"
-                        : ""
-                  }`
-                : searching
-                  ? "Buscando alimento…"
-                  : results.nextCursor
-                    ? "A busca ainda tem páginas para consultar."
-                    : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
-            </p>
-          )}
+          {query.trim().length >= 2 &&
+            !searchError &&
+            (!!results.foods.length || !searching) && (
+              <p role="status" className="mt-3 text-xs text-muted">
+                {results.foods.length
+                  ? `${results.foods.length.toLocaleString("pt-BR")} alimentos carregados${
+                      searching
+                        ? " · buscando mais opções…"
+                        : results.nextCursor
+                          ? " · role a lista para carregar mais"
+                          : ""
+                    }`
+                  : searching
+                    ? "Buscando alimento…"
+                    : results.nextCursor
+                      ? "A busca ainda tem páginas para consultar."
+                      : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
+              </p>
+            )}
           {!searching &&
             results.nextCursor &&
             (partialResults || searchError) && (
@@ -1236,7 +1266,16 @@ export default function FoodCalculator({
                     className="min-h-8 p-2 text-center text-xs text-muted"
                   >
                     {searching ? (
-                      <span role="status">Carregando mais alimentos…</span>
+                      <span
+                        role="status"
+                        className="inline-flex items-center gap-2"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="size-4 shrink-0 animate-spin rounded-full border-2 border-outline border-t-current text-[#52642f] motion-reduce:animate-none"
+                        />
+                        Carregando mais alimentos…
+                      </span>
                     ) : !partialResults && !searchError ? (
                       "Role para carregar mais alimentos"
                     ) : null}
