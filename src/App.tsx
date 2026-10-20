@@ -41,7 +41,7 @@ function RecipeCard({
     }
   }
   return (
-    <article className="group overflow-hidden rounded-[28px] border border-[#eadfd5] bg-white p-2 shadow-[0_8px_30px_rgba(70,43,28,0.06)] transition hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(70,43,28,0.12)]">
+    <article className="group overflow-hidden rounded-[28px] border border-outline bg-surface p-2 shadow-[0_8px_30px_rgba(70,43,28,0.06)] transition hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(70,43,28,0.12)]">
       <div className="relative h-56 overflow-hidden rounded-[22px]">
         <img
           src={recipe.image}
@@ -58,8 +58,8 @@ function RecipeCard({
           <button
             disabled={pending}
             onClick={() => void favorite()}
-            className={`grid size-10 place-items-center rounded-full bg-white shadow-md transition hover:scale-105 ${
-              recipe.isFavorite ? "text-[#ef4f78]" : "text-[#4b3a30]"
+            className={`grid size-10 place-items-center rounded-full bg-surface shadow-md transition hover:scale-105 ${
+              recipe.isFavorite ? "text-[#ef4f78]" : "text-foreground"
             }`}
             aria-pressed={recipe.isFavorite}
             aria-label={
@@ -74,42 +74,42 @@ function RecipeCard({
       </div>
       <div className="p-4">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <h3 className="font-display text-xl font-black tracking-tight text-[#30251f]">
+          <h3 className="font-display text-xl font-black tracking-tight text-foreground">
             {recipe.title}
           </h3>
-          <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-[#30251f]">
+          <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-foreground">
             <span className="text-[#f6ae2d]">
               <Icon name="star" size={16} filled />
             </span>
             {recipe.votes ? recipe.rating.toLocaleString("pt-BR") : "Nova"}
           </span>
         </div>
-        <p className="mb-4 text-xs font-semibold text-[#8a776b]">
+        <p className="mb-4 text-xs font-semibold text-muted">
           por {recipe.author} · {recipe.votes} avaliações
         </p>
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-[#f5f0eb] px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#6f5d52]">
+        <div className="mb-4 flex items-center gap-2 rounded-xl bg-muted-surface px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-muted">
           <Icon name="bowl" size={15} /> Ninja CREAMi · pote completo
         </div>
         <div className="grid grid-cols-4 gap-1.5">
           <Macro
             value={`${recipe.protein}g`}
             label="proteína"
-            tone="bg-[#fff0f4] text-[#d63f68]"
+            tone="bg-pink-soft text-[#d63f68]"
           />
           <Macro
             value={`${recipe.carbs}g`}
             label="carbo"
-            tone="bg-[#fff6d8] text-[#9a6c00]"
+            tone="bg-yellow-soft text-[#9a6c00]"
           />
           <Macro
             value={`${recipe.fat}g`}
             label="gordura"
-            tone="bg-[#eef8dd] text-[#5f7f24]"
+            tone="bg-green-soft text-[#5f7f24]"
           />
           <Macro
             value={`${recipe.calories}`}
             label="kcal"
-            tone="bg-[#eee8fb] text-[#7655bd]"
+            tone="bg-purple-soft text-[#7655bd]"
           />
         </div>
         <button
@@ -119,22 +119,22 @@ function RecipeCard({
           Ver receita <Icon name="arrow" size={18} />
         </button>
         {onEdit && onDelete && (
-          <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#f0e5da] pt-3">
-            <span className="text-xs font-bold text-[#8a776b]">
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-outline pt-3">
+            <span className="text-xs font-bold text-muted">
               Sua receita
             </span>
             <div className="flex gap-2">
               <button
                 onClick={onEdit}
                 aria-label={`Editar ${recipe.title}`}
-                className="rounded-full bg-[#fff0f4] px-3 py-2 text-xs font-extrabold text-[#d63f68]"
+                className="rounded-full bg-pink-soft px-3 py-2 text-xs font-extrabold text-[#d63f68]"
               >
                 Editar
               </button>
               <button
                 onClick={onDelete}
                 aria-label={`Excluir ${recipe.title}`}
-                className="rounded-full bg-[#f5f0eb] px-3 py-2 text-xs font-extrabold text-[#715f54]"
+                className="rounded-full bg-muted-surface px-3 py-2 text-xs font-extrabold text-muted"
               >
                 Excluir
               </button>
@@ -305,7 +305,7 @@ export default function App() {
 
   if (!isLoaded || !snapshot) {
     return (
-      <main className="grid min-h-svh place-items-center bg-[#fffaf3] px-6 py-12 text-[#342820]">
+      <main className="grid min-h-svh place-items-center bg-page px-6 py-12 text-foreground">
         <div className="w-full max-w-sm text-center">
           <div className="mb-9 flex items-center justify-center gap-2">
             <span className="logo-scoop" aria-hidden="true" />
@@ -317,14 +317,14 @@ export default function App() {
             role={databaseError && !loading ? "alert" : "status"}
             aria-live="polite"
             aria-atomic="true"
-            className="rounded-[28px] border border-[#eadfd5] bg-white p-8 shadow-[0_8px_30px_rgba(70,43,28,0.06)]"
+            className="rounded-[28px] border border-outline bg-surface p-8 shadow-[0_8px_30px_rgba(70,43,28,0.06)]"
           >
             {databaseError && !loading ? (
               <>
                 <h1 className="font-display text-xl font-black">
                   Não foi possível carregar
                 </h1>
-                <p className="mt-3 text-sm leading-relaxed text-[#715f54]">
+                <p className="mt-3 text-sm leading-relaxed text-muted">
                   {databaseError}
                 </p>
                 <button
@@ -343,7 +343,7 @@ export default function App() {
                 <h1 className="font-display text-xl font-black">
                   Preparando suas receitas
                 </h1>
-                <p className="mt-3 text-sm leading-relaxed text-[#715f54]">
+                <p className="mt-3 text-sm leading-relaxed text-muted">
                   {isLoaded
                     ? "Carregando receitas e seu perfil…"
                     : "Preparando seu acesso…"}
@@ -380,8 +380,8 @@ export default function App() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#fffaf3] text-[#342820]">
-      <nav className="fixed inset-x-0 top-0 z-40 border-b border-[#f0e5da]/80 bg-[#fffaf3]/90 backdrop-blur-xl">
+    <main className="min-h-screen overflow-hidden bg-page text-foreground">
+      <nav className="fixed inset-x-0 top-0 z-40 border-b border-outline/80 bg-page/90 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-8">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -421,7 +421,7 @@ export default function App() {
             <Show when="signed-out">
               <button
                 onClick={openProfile}
-                className="grid size-11 place-items-center rounded-full border border-[#e8dbcf] bg-white"
+                className="grid size-11 place-items-center rounded-full border border-outline bg-surface"
                 aria-label="Abrir perfil"
               >
                 <Icon name="user" size={19} />
@@ -429,7 +429,7 @@ export default function App() {
             </Show>
             <Show when="signed-out">
               <SignInButton mode="modal">
-                <button className="rounded-full border border-[#e8dbcf] bg-white px-4 py-2 text-sm font-extrabold">
+                <button className="rounded-full border border-outline bg-surface px-4 py-2 text-sm font-extrabold">
                   Entrar
                 </button>
               </SignInButton>
@@ -447,14 +447,14 @@ export default function App() {
           <button
             onClick={() => setMobileMenu(!mobileMenu)}
             aria-expanded={mobileMenu}
-            className="grid size-11 place-items-center rounded-full bg-white shadow-sm md:hidden"
+            className="grid size-11 place-items-center rounded-full bg-surface shadow-sm md:hidden"
             aria-label="Abrir menu"
           >
             <Icon name={mobileMenu ? "close" : "menu"} />
           </button>
         </div>
         {mobileMenu && (
-          <div className="border-t border-[#eee1d6] bg-[#fffaf3] px-5 py-5 md:hidden">
+          <div className="border-t border-outline bg-page px-5 py-5 md:hidden">
             <button
               onClick={() => {
                 scrollToRecipes()
@@ -504,7 +504,7 @@ export default function App() {
 
       <section className="relative mx-auto grid min-h-[760px] max-w-7xl items-center gap-10 px-5 pb-16 pt-32 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:pt-28">
         <div className="relative z-10">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#eadfd5] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#775f51]">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-outline bg-surface px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-muted">
             <span className="size-2 rounded-full bg-[#9fcd50]" /> exclusivo para
             Ninja CREAMi
           </div>
@@ -528,7 +528,7 @@ export default function App() {
               </svg>
             </span>
           </h1>
-          <p className="mt-8 max-w-xl text-lg font-medium leading-relaxed text-[#715f54] sm:text-xl">
+          <p className="mt-8 max-w-xl text-lg font-medium leading-relaxed text-muted sm:text-xl">
             Receitas fitness feitas exclusivamente para a Ninja CREAMi, com modo
             de processamento, macros por pote e notas reais de sabor.
           </p>
@@ -541,7 +541,7 @@ export default function App() {
             </button>
             <button
               onClick={openSubmit}
-              className="flex items-center justify-center gap-3 rounded-full border-2 border-[#342820] bg-white px-7 py-4 font-extrabold transition hover:bg-[#fff0f4]"
+              className="flex items-center justify-center gap-3 rounded-full border-2 border-[#342820] bg-surface px-7 py-4 font-extrabold transition hover:bg-pink-soft"
             >
               <Icon name="plus" /> Criar receita
             </button>
@@ -566,7 +566,7 @@ export default function App() {
               <strong className="block text-base">
                 {recipes.length} sabores cremosos
               </strong>
-              <span className="text-[#907b6f]">
+              <span className="text-muted">
                 para descobrir e fazer do seu jeito
               </span>
             </p>
@@ -584,8 +584,8 @@ export default function App() {
               className="block h-full w-full object-cover object-center"
             />
           </div>
-          <div className="float-card absolute -left-1 top-8 rounded-2xl bg-white p-3 shadow-xl sm:-left-3 sm:top-16 sm:rounded-3xl sm:p-4">
-            <span className="text-xs font-bold text-[#8e7a6f]">
+          <div className="float-card absolute -left-1 top-8 rounded-2xl bg-surface p-3 shadow-xl sm:-left-3 sm:top-16 sm:rounded-3xl sm:p-4">
+            <span className="text-xs font-bold text-muted">
               Muita proteína
             </span>
             <strong className="mt-1 block font-display text-2xl text-[#ef4f78] sm:text-3xl">
@@ -607,7 +607,7 @@ export default function App() {
 
       <section
         id="receitas"
-        className="scroll-mt-20 rounded-t-[48px] bg-white px-5 py-20 lg:px-8"
+        className="scroll-mt-20 rounded-t-[48px] bg-surface px-5 py-20 lg:px-8"
       >
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
@@ -619,13 +619,13 @@ export default function App() {
                 Sabores que fazem bem
               </h2>
             </div>
-            <label className="flex w-full max-w-md items-center gap-3 rounded-full border border-[#e9ddd2] bg-[#fffaf3] px-5 py-3.5 focus-within:border-[#ef4f78]">
+            <label className="flex w-full max-w-md items-center gap-3 rounded-full border border-outline bg-page px-5 py-3.5 focus-within:border-[#ef4f78]">
               <Icon name="search" size={19} />
               <input
                 aria-label="Buscar receitas por sabor ou ingrediente"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-[#a69185]"
+                className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-muted"
                 placeholder="Busque por sabor ou ingrediente..."
               />
             </label>
@@ -639,7 +639,7 @@ export default function App() {
                 className={`shrink-0 rounded-full px-5 py-3 text-sm font-extrabold transition ${
                   category === item
                     ? "bg-[#342820] text-white"
-                    : "border border-[#e9ddd2] bg-white hover:border-[#ef4f78] hover:text-[#ef4f78]"
+                    : "border border-outline bg-surface hover:border-[#ef4f78] hover:text-[#ef4f78]"
                 }`}
               >
                 {item}
@@ -663,20 +663,20 @@ export default function App() {
                   aria-pressed={collection === value}
                   className={`rounded-full px-4 py-2 text-xs font-extrabold ${
                     collection === value
-                      ? "bg-[#fff0f4] text-[#d63f68]"
-                      : "bg-[#f5f0eb] text-[#715f54]"
+                      ? "bg-pink-soft text-[#d63f68]"
+                      : "bg-muted-surface text-muted"
                   }`}
                 >
                   {label}
                 </button>
               ))}
             </div>
-            <label className="flex items-center gap-2 text-xs font-bold text-[#715f54]">
+            <label className="flex items-center gap-2 text-xs font-bold text-muted">
               Ordenar
               <select
                 value={sort}
                 onChange={(event) => setSort(event.target.value)}
-                className="rounded-full border border-[#e9ddd2] bg-white px-3 py-2"
+                className="rounded-full border border-outline bg-surface px-3 py-2"
               >
                 <option value="recent">Mais recentes</option>
                 <option value="rating">Melhor avaliação</option>
@@ -685,14 +685,14 @@ export default function App() {
               </select>
             </label>
           </div>
-          <p className="mt-4 text-xs font-medium text-[#8a776b]">
+          <p className="mt-4 text-xs font-medium text-muted">
             Catálogo inicial com receitas e notas de exemplo. As novas receitas
             e avaliações são compartilhadas com toda a comunidade.
           </p>
           {databaseError && (
             <div
               role="alert"
-              className="mt-6 rounded-3xl bg-[#fff0f4] p-5 text-sm font-bold text-[#b92e53]"
+              className="mt-6 rounded-3xl bg-pink-soft p-5 text-sm font-bold text-[#b92e53]"
             >
               <p>{databaseError}</p>
               <button
@@ -706,7 +706,7 @@ export default function App() {
           {loading ? (
             <p
               role="status"
-              className="py-12 text-center font-bold text-[#78665b]"
+              className="py-12 text-center font-bold text-muted"
             >
               Carregando suas receitas…
             </p>
@@ -732,13 +732,13 @@ export default function App() {
               ))}
             </div>
           ) : (
-            <div className="mt-12 rounded-[32px] bg-[#fff6d8] p-12 text-center">
+            <div className="mt-12 rounded-[32px] bg-yellow-soft p-12 text-center">
               <strong className="font-display text-2xl">
                 {collection === "mine" && !query && category === "Todos"
                   ? "Suas receitas ficam aqui."
                   : "Nenhum sabor por aqui ainda."}
               </strong>
-              <p className="mt-2 text-[#79685d]">
+              <p className="mt-2 text-muted">
                 {collection === "mine" && !query && category === "Todos"
                   ? "Escolha seu nome ao enviar uma receita. Depois, você poderá editar ou excluir por aqui, sem precisar de senha."
                   : "Tente outra busca ou seja a primeira pessoa a criar essa receita."}
@@ -772,7 +772,7 @@ export default function App() {
 
       <section
         id="comunidade"
-        className="relative scroll-mt-20 overflow-hidden bg-[#b8e46c] px-5 py-20 lg:px-8"
+        className="accent-panel relative scroll-mt-20 overflow-hidden bg-[#b8e46c] text-[#342820] px-5 py-20 lg:px-8"
       >
         <span className="absolute -left-20 -top-24 size-72 rounded-full border-[45px] border-[#a4d04f]/60" />
         <span className="absolute -bottom-32 right-10 size-72 rounded-full bg-[#ffd45e]/70" />
@@ -801,7 +801,7 @@ export default function App() {
             <Stat
               value={String(recipes.length)}
               label="receitas no catálogo"
-              color="bg-[#fffaf3]"
+              color="bg-page"
             />
             <Stat
               value={averageRating}
@@ -927,7 +927,7 @@ function Stat({
 }) {
   return (
     <div
-      className={`${color} rounded-[30px] p-7 shadow-[0_10px_0_rgba(80,100,40,0.18)]`}
+      className={`${color} ${color === "bg-page" ? "text-foreground" : "text-[#342820]"} rounded-[30px] p-7 shadow-[0_10px_0_rgba(80,100,40,0.18)]`}
     >
       <strong className="font-display text-5xl font-black tracking-tight">
         {value}

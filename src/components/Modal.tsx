@@ -75,7 +75,7 @@ export default function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`max-h-[92dvh] min-w-0 w-full overflow-y-auto rounded-[32px] bg-[#fffaf3] shadow-2xl outline-none max-sm:h-[100dvh] max-sm:max-h-none max-sm:rounded-none ${
+        className={`max-h-[92dvh] min-w-0 w-full overflow-y-auto rounded-[32px] bg-page shadow-2xl outline-none max-sm:h-[100dvh] max-sm:max-h-none max-sm:rounded-none ${
           wide ? "max-w-3xl" : "max-w-2xl"
         }`}
       >

@@ -3,6 +3,7 @@ import type { Profile, Recipe } from "../types"
 import { errorMessage } from "../lib/api.js"
 import Modal from "./Modal"
 import Icon from "./Icon"
+import { useTheme, type ThemePreference } from "../lib/theme"
 
 export default function ProfileModal({
   profile,
@@ -19,6 +20,7 @@ export default function ProfileModal({
   onCollection: (collection: "favorites" | "mine") => void
   onAdmin: () => void
 }) {
+  const [theme, setTheme] = useTheme()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [saved, setSaved] = useState(false)
@@ -64,13 +66,13 @@ export default function ProfileModal({
           <button
             onClick={onClose}
             disabled={saving}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-white"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-surface"
             aria-label="Fechar perfil"
           >
             <Icon name="close" />
           </button>
         </div>
-        <p className="mt-4 text-sm leading-relaxed text-[#78665b]">
+        <p className="mt-4 text-sm leading-relaxed text-muted">
           Basta escolher seu nome para criar receitas. Em Minhas receitas, você
           pode editar e excluir o que enviou, sem senha. Seu perfil é lembrado
           neste navegador e suas receitas ficam disponíveis no site para todos.
@@ -108,11 +110,31 @@ export default function ProfileModal({
             </p>
           )}
         </form>
+        <div className="mt-7 border-t border-outline pt-5">
+          <label className="block">
+            <span className="mb-2 block text-sm font-extrabold">Aparência</span>
+            <select
+              aria-label="Aparência"
+              value={theme}
+              onChange={(event) =>
+                setTheme(event.target.value as ThemePreference)
+              }
+              className="form-input"
+            >
+              <option value="system">Automático · seguir o celular</option>
+              <option value="light">Claro</option>
+              <option value="dark">Escuro</option>
+            </select>
+          </label>
+          <p className="mt-2 text-xs text-muted">
+            A mudança é aplicada na hora e fica salva neste navegador.
+          </p>
+        </div>
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
           <button
             disabled={saving}
             onClick={() => onCollection("mine")}
-            className="rounded-3xl bg-[#b8e46c] p-5 text-left"
+            className="rounded-3xl bg-[#b8e46c] p-5 text-left text-[#342820]"
           >
             <strong className="block font-display text-3xl font-black">
               {
@@ -127,7 +149,7 @@ export default function ProfileModal({
           <button
             disabled={saving}
             onClick={() => onCollection("favorites")}
-            className="rounded-3xl bg-[#ffadc4] p-5 text-left"
+            className="rounded-3xl bg-[#ffadc4] p-5 text-left text-[#342820]"
           >
             <strong className="block font-display text-3xl font-black">
               {recipes.filter((recipe) => recipe.isFavorite).length}
@@ -137,7 +159,7 @@ export default function ProfileModal({
             </span>
           </button>
         </div>
-        <div className="mt-6 border-t border-[#e7d9ce] pt-5">
+        <div className="mt-6 border-t border-outline pt-5">
           <button
             disabled={saving}
             onClick={onAdmin}
@@ -145,7 +167,7 @@ export default function ProfileModal({
           >
             Administração <Icon name="arrow" size={18} />
           </button>
-          <p className="mt-2 text-xs text-[#8a776b]">
+          <p className="mt-2 text-xs text-muted">
             Acesso pela conta de e-mail autorizada para gerenciar todas as
             receitas e os totais de avaliações.
           </p>

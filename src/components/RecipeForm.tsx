@@ -57,6 +57,7 @@ export default function RecipeForm({
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
   const [processingPhoto, setProcessingPhoto] = useState(false)
+  const [savingFood, setSavingFood] = useState(false)
   const [foodItems, setFoodItems] = useState<FoodReference[]>(
     recipe?.foodItems || [],
   )
@@ -80,7 +81,7 @@ export default function RecipeForm({
     rating: recipe?.rating ?? 0,
     votes: recipe?.votes ?? 0,
   })
-  const busy = saving || processingPhoto
+  const busy = saving || processingPhoto || savingFood
 
   const updateFoods = (
     references: FoodReference[],
@@ -210,14 +211,14 @@ export default function RecipeForm({
           <button
             onClick={onClose}
             disabled={busy}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-white"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-surface"
             aria-label="Fechar formulário"
           >
             <Icon name="close" />
           </button>
         )}
       </div>
-      <p className="mt-3 text-sm text-[#78665b]">
+      <p className="mt-3 text-sm text-muted">
         {adminMode
           ? "Altere os dados da receita e salve para atualizar o catálogo para todos."
           : recipe
@@ -229,7 +230,7 @@ export default function RecipeForm({
           <section
             className={
               page
-                ? "rounded-[28px] border border-[#eadfd5] bg-white p-4 sm:p-7"
+                ? "rounded-[28px] border border-outline bg-surface p-4 sm:p-7"
                 : "space-y-5"
             }
           >
@@ -250,10 +251,10 @@ export default function RecipeForm({
                   Foto da receita
                 </span>
                 <label
-                  className={`relative flex min-h-48 cursor-pointer items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed bg-white focus-within:border-[#ef4f78] ${
+                  className={`relative flex min-h-48 cursor-pointer items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed bg-surface focus-within:border-[#ef4f78] ${
                     photoError
                       ? "border-[#ef4f78]"
-                      : "border-[#dccdc1] hover:border-[#ef4f78]"
+                      : "border-outline hover:border-[#ef4f78]"
                   }`}
                 >
                   {photo ? (
@@ -269,7 +270,7 @@ export default function RecipeForm({
                     </>
                   ) : (
                     <span className="flex flex-col items-center px-6 py-8 text-center">
-                      <span className="grid size-12 place-items-center rounded-full bg-[#fff0f4] text-[#ef4f78]">
+                      <span className="grid size-12 place-items-center rounded-full bg-pink-soft text-[#ef4f78]">
                         <Icon name="plus" size={24} />
                       </span>
                       <strong className="mt-3 text-sm">
@@ -277,7 +278,7 @@ export default function RecipeForm({
                           ? "Preparando foto…"
                           : "Adicione uma foto do resultado"}
                       </strong>
-                      <span className="mt-1 text-xs font-semibold text-[#927d71]">
+                      <span className="mt-1 text-xs font-semibold text-muted">
                         JPG, PNG ou WEBP · máximo 10 MB
                       </span>
                     </span>
@@ -311,7 +312,7 @@ export default function RecipeForm({
                       defaultValue={author === "Você" ? "" : author}
                       maxLength={60}
                     />
-                    <p className="mt-2 text-xs text-[#8a776b]">
+                    <p className="mt-2 text-xs text-muted">
                       Vamos lembrar seu nome neste navegador para as próximas
                       receitas.
                     </p>
@@ -389,7 +390,7 @@ export default function RecipeForm({
           <section
             className={
               page
-                ? "min-w-0 space-y-5 rounded-[28px] border border-[#eadfd5] bg-white p-4 sm:p-7"
+                ? "min-w-0 space-y-5 rounded-[28px] border border-outline bg-surface p-4 sm:p-7"
                 : "space-y-5"
             }
           >
@@ -401,6 +402,7 @@ export default function RecipeForm({
             {showCalculator ? (
               <FoodCalculator
                 embedded={page}
+                onBusyChange={setSavingFood}
                 initialItems={foodItems}
                 initialLabels={automaticIngredients}
                 onRestore={setAutomaticIngredients}
@@ -435,7 +437,7 @@ export default function RecipeForm({
                 className="form-input resize-y"
               />
               {foodItems.length > 0 && (
-                <span className="mt-2 block text-xs leading-relaxed text-[#8a776b]">
+                <span className="mt-2 block text-xs leading-relaxed text-muted">
                   Só os alimentos selecionados entram no cálculo automático. Se
                   adicionar outro ingrediente com calorias aqui, inclua-o também
                   na calculadora ou ajuste os totais abaixo.
@@ -451,7 +453,7 @@ export default function RecipeForm({
             <section
               className={
                 page
-                  ? "rounded-[28px] border border-[#eadfd5] bg-white p-4 sm:p-7"
+                  ? "rounded-[28px] border border-outline bg-surface p-4 sm:p-7"
                   : ""
               }
             >
@@ -475,7 +477,7 @@ export default function RecipeForm({
             <section
               className={
                 page
-                  ? "rounded-[28px] border border-[#eadfd5] bg-white p-4 sm:p-7"
+                  ? "rounded-[28px] border border-outline bg-surface p-4 sm:p-7"
                   : ""
               }
             >
@@ -483,7 +485,7 @@ export default function RecipeForm({
                 <p className="text-sm font-extrabold">
                   Macros e calorias por pote · obrigatório
                 </p>
-                <p className="mb-3 mt-1 text-xs text-[#8a776b]">
+                <p className="mb-3 mt-1 text-xs text-muted">
                   {foodItems.length
                     ? "Totais dos alimentos selecionados. Você pode corrigir os valores, se necessário."
                     : "Preencha os quatro campos ou escolha alimentos acima para calcular. Informe 0 quando o nutriente não estiver presente."}
@@ -537,7 +539,7 @@ export default function RecipeForm({
             </section>
           </div>
           {adminMode && (
-            <div className="rounded-3xl border border-[#eadfd5] bg-[#fff6d8] p-5">
+            <div className="rounded-3xl border border-outline bg-yellow-soft p-5">
               <h3 className="font-display text-xl font-black">
                 Estrelas e avaliações
               </h3>
@@ -563,7 +565,7 @@ export default function RecipeForm({
                   step={1}
                 />
               </div>
-              <p className="mt-3 text-xs leading-relaxed text-[#78665b]">
+              <p className="mt-3 text-xs leading-relaxed text-muted">
                 Use média 0 para nenhuma avaliação. Ao alterar estes totais, as
                 avaliações anteriores serão incorporadas ao consolidado; uma
                 nova avaliação contará à parte. Se os totais não mudarem, sua
@@ -575,7 +577,7 @@ export default function RecipeForm({
         {error && (
           <p
             role="alert"
-            className="rounded-2xl bg-[#fff0f4] p-4 text-sm font-bold text-[#b92e53]"
+            className="rounded-2xl bg-pink-soft p-4 text-sm font-bold text-[#b92e53]"
           >
             {error}
           </p>
@@ -600,8 +602,8 @@ export default function RecipeForm({
 
   if (page) {
     return (
-      <main className="min-h-svh bg-[#fffaf3] text-[#342820]">
-        <header className="sticky top-0 z-30 border-b border-[#eadfd5] bg-[#fffaf3]/95 backdrop-blur-xl">
+      <main className="min-h-svh bg-page text-foreground">
+        <header className="sticky top-0 z-30 border-b border-outline bg-page/95 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4 lg:px-8">
             <span className="font-display text-lg font-black tracking-tight sm:text-xl">
               Ninja CREAMi <span className="text-[#ef4f78]">Fit</span>
@@ -610,7 +612,7 @@ export default function RecipeForm({
               type="button"
               onClick={onClose}
               disabled={busy}
-              className="flex items-center gap-2 rounded-full border border-[#e7d9ce] bg-white px-3 py-2.5 text-xs font-extrabold sm:px-4 sm:text-sm"
+              className="flex items-center gap-2 rounded-full border border-outline bg-surface px-3 py-2.5 text-xs font-extrabold sm:px-4 sm:text-sm"
             >
               <span className="rotate-180">
                 <Icon name="arrow" size={16} />

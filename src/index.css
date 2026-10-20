@@ -1,7 +1,17 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap");
 @import "tailwindcss";
 
-@theme {
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-muted-surface: var(--muted-surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-outline: var(--outline);
+  --color-pink-soft: var(--pink-soft);
+  --color-yellow-soft: var(--yellow-soft);
+  --color-green-soft: var(--green-soft);
+  --color-purple-soft: var(--purple-soft);
   --font-sans: "DM Sans", sans-serif;
   --font-display: "Nunito", sans-serif;
 }
@@ -15,10 +25,38 @@ html {
 }
 
 
+:root {
+  --page: #fffaf3;
+  --surface: #ffffff;
+  --muted-surface: #f5f0eb;
+  --foreground: #342820;
+  --muted: #78665b;
+  --outline: #e7d9ce;
+  --pink-soft: #fff0f4;
+  --yellow-soft: #fff6d8;
+  --green-soft: #eef8dd;
+  --purple-soft: #faf7ff;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --page: #101722;
+  --surface: #192333;
+  --muted-surface: #243145;
+  --foreground: #edf1f7;
+  --muted: #bac5d3;
+  --outline: #39485d;
+  --pink-soft: #3b2534;
+  --yellow-soft: #383222;
+  --green-soft: #263526;
+  --purple-soft: #302640;
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   min-width: 320px;
-  background: #fffaf3;
+  background: var(--page);
+  color: var(--foreground);
   font-family: "DM Sans", sans-serif;
 }
 
@@ -38,9 +76,10 @@ fieldset {
 
 .form-input {
   width: 100%;
-  border: 1px solid #e7d9ce;
+  border: 1px solid var(--outline);
   border-radius: 1rem;
-  background: white;
+  background: var(--surface);
+  color: var(--foreground);
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
   font-weight: 600;
@@ -145,3 +184,16 @@ button {
     animation-iteration-count: 1 !important;
   }
 }
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder { color: #9aa8ba; }
+:root[data-theme="dark"] .text-\[\#52642f\],
+:root[data-theme="dark"] .text-\[\#5f7f24\] { color: #b8e46c; }
+:root[data-theme="dark"] .text-\[\#d63f68\],
+:root[data-theme="dark"] .text-\[\#b92e53\],
+:root[data-theme="dark"] .text-\[\#9b2448\] { color: #ffadc4; }
+:root[data-theme="dark"] .text-\[\#6950a8\],
+:root[data-theme="dark"] .text-\[\#7655bd\] { color: #c8afff; }
+:root[data-theme="dark"] .text-\[\#9a6c00\] { color: #ffd45e; }
+
+:root[data-theme="dark"] .accent-panel .text-\[\#52642f\] { color: #435326; }

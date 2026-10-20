@@ -69,8 +69,8 @@ export default function AdminPanel({
   }
 
   return (
-    <main className="min-h-screen bg-[#fffaf3] text-[#342820]">
-      <header className="border-b border-[#eadfd5] bg-white">
+    <main className="min-h-screen bg-page text-foreground">
+      <header className="border-b border-outline bg-surface">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-5 lg:px-8">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ef4f78]">
@@ -96,14 +96,14 @@ export default function AdminPanel({
       </header>
       <div className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
         {!authenticated ? (
-          <section className="mx-auto max-w-md rounded-[32px] border border-[#eadfd5] bg-white p-6 shadow-sm sm:p-9">
-            <span className="grid size-14 place-items-center rounded-2xl bg-[#fff0f4] text-[#ef4f78]">
+          <section className="mx-auto max-w-md rounded-[32px] border border-outline bg-surface p-6 shadow-sm sm:p-9">
+            <span className="grid size-14 place-items-center rounded-2xl bg-pink-soft text-[#ef4f78]">
               <Icon name="user" size={26} />
             </span>
             <h2 className="mt-5 font-display text-3xl font-black">
               Acesso restrito
             </h2>
-            <p className="mt-3 text-sm leading-relaxed text-[#78665b]">
+            <p className="mt-3 text-sm leading-relaxed text-muted">
               A administração é liberada pela conta de e-mail autorizada. Entre
               com essa conta para gerenciar receitas e avaliações.
             </p>
@@ -117,7 +117,7 @@ export default function AdminPanel({
             <Show when="signed-in">
               <p
                 role="status"
-                className="mt-5 text-sm leading-relaxed text-[#78665b]"
+                className="mt-5 text-sm leading-relaxed text-muted"
               >
                 O acesso de administrador não está liberado para a conta
                 conectada. Use o menu da sua conta, no topo, para sair e entrar
@@ -135,12 +135,12 @@ export default function AdminPanel({
                 <h2 className="mt-2 font-display text-4xl font-black tracking-tight">
                   Gerenciar receitas
                 </h2>
-                <p className="mt-3 max-w-2xl text-sm text-[#78665b]">
+                <p className="mt-3 max-w-2xl text-sm text-muted">
                   Edite qualquer receita, inclusive as do catálogo inicial. As
                   alterações são salvas no servidor e aparecem para todos.
                 </p>
               </div>
-              <span className="self-start rounded-full bg-[#eef8dd] px-4 py-2 text-xs font-extrabold text-[#52642f]">
+              <span className="self-start rounded-full bg-green-soft px-4 py-2 text-xs font-extrabold text-[#52642f]">
                 Administrador conectado
               </span>
             </div>
@@ -158,7 +158,7 @@ export default function AdminPanel({
               />
             </div>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <label className="flex flex-1 items-center gap-3 rounded-2xl border border-[#e7d9ce] bg-white px-4 py-3">
+              <label className="flex flex-1 items-center gap-3 rounded-2xl border border-outline bg-surface px-4 py-3">
                 <Icon name="search" size={18} />
                 <input
                   aria-label="Buscar receitas na administração"
@@ -184,7 +184,7 @@ export default function AdminPanel({
             {error && !deleting && (
               <p
                 role="alert"
-                className="mt-5 rounded-2xl bg-[#fff0f4] p-4 text-sm font-bold text-[#b92e53]"
+                className="mt-5 rounded-2xl bg-pink-soft p-4 text-sm font-bold text-[#b92e53]"
               >
                 {error}
               </p>
@@ -193,7 +193,7 @@ export default function AdminPanel({
               {recipes.map((recipe) => (
                 <article
                   key={recipe.id}
-                  className="flex flex-col gap-4 rounded-3xl border border-[#eadfd5] bg-white p-4 sm:flex-row sm:items-center sm:p-5"
+                  className="flex flex-col gap-4 rounded-3xl border border-outline bg-surface p-4 sm:flex-row sm:items-center sm:p-5"
                 >
                   <img
                     src={recipe.image}
@@ -202,17 +202,17 @@ export default function AdminPanel({
                     className="h-36 w-full shrink-0 rounded-2xl object-cover sm:size-24"
                   />
                   <div className="min-w-0 flex-1">
-                    <span className="text-xs font-bold text-[#8a776b]">
+                    <span className="text-xs font-bold text-muted">
                       {recipe.category} · {recipe.author}
                     </span>
                     <h3 className="mt-1 break-words font-display text-xl font-black">
                       {recipe.title}
                     </h3>
-                    <p className="mt-2 text-sm font-semibold text-[#715f54]">
+                    <p className="mt-2 text-sm font-semibold text-muted">
                       ★ {recipe.rating.toLocaleString("pt-BR")} ·{" "}
                       {recipe.votes.toLocaleString("pt-BR")} avaliações
                     </p>
-                    <p className="mt-1 text-xs font-semibold text-[#8a776b]">
+                    <p className="mt-1 text-xs font-semibold text-muted">
                       P {recipe.protein}g · C {recipe.carbs}g · G {recipe.fat}g
                       · {recipe.calories} kcal
                     </p>
@@ -233,7 +233,7 @@ export default function AdminPanel({
                         setDeletingId(recipe.id)
                         setError("")
                       }}
-                      className="flex-1 rounded-full border border-[#e7d9ce] px-5 py-3 text-sm font-bold text-[#d63f68]"
+                      className="flex-1 rounded-full border border-outline px-5 py-3 text-sm font-bold text-[#d63f68]"
                       aria-label={`Excluir ${recipe.title}`}
                     >
                       Excluir
@@ -243,11 +243,11 @@ export default function AdminPanel({
               ))}
             </div>
             {!recipes.length && (
-              <div className="mt-6 rounded-3xl bg-[#fff6d8] p-8 text-center">
+              <div className="mt-6 rounded-3xl bg-yellow-soft p-8 text-center">
                 <strong className="font-display text-xl font-black">
                   Nenhuma receita encontrada.
                 </strong>
-                <p className="mt-2 text-sm text-[#78665b]">
+                <p className="mt-2 text-sm text-muted">
                   Tente outra busca ou categoria.
                 </p>
               </div>
@@ -279,7 +279,7 @@ export default function AdminPanel({
             >
               Excluir receita?
             </h2>
-            <p className="mt-4 text-sm leading-relaxed text-[#78665b]">
+            <p className="mt-4 text-sm leading-relaxed text-muted">
               A receita <strong>{deleting.title}</strong>, seus favoritos e suas
               avaliações serão removidos do site. Essa ação não pode ser
               desfeita.
@@ -306,7 +306,7 @@ export default function AdminPanel({
               <button
                 disabled={busy}
                 onClick={() => setDeletingId(null)}
-                className="rounded-full border border-[#e7d9ce] bg-white px-6 py-3 text-sm font-bold"
+                className="rounded-full border border-outline bg-surface px-6 py-3 text-sm font-bold"
               >
                 Cancelar
               </button>
@@ -336,11 +336,11 @@ type SummaryProps = {
 
 function Summary({ value, label }: SummaryProps) {
   return (
-    <div className="rounded-3xl border border-[#eadfd5] bg-white p-5">
+    <div className="rounded-3xl border border-outline bg-surface p-5">
       <strong className="font-display text-3xl font-black">
         {value.toLocaleString("pt-BR")}
       </strong>
-      <span className="mt-1 block text-xs font-extrabold uppercase tracking-wide text-[#8a776b]">
+      <span className="mt-1 block text-xs font-extrabold uppercase tracking-wide text-muted">
         {label}
       </span>
     </div>

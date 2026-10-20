@@ -59,7 +59,7 @@ export default function RecipeDetails({
         <button
           onClick={onClose}
           disabled={pending}
-          className="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-white shadow-lg"
+          className="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-surface shadow-lg"
           aria-label="Fechar receita"
         >
           <Icon name="close" />
@@ -79,7 +79,7 @@ export default function RecipeDetails({
             >
               {recipe.title}
             </h2>
-            <p className="mt-2 text-sm font-semibold text-[#8a776b]">
+            <p className="mt-2 text-sm font-semibold text-muted">
               Receita de {recipe.author}
             </p>
           </div>
@@ -103,8 +103,8 @@ export default function RecipeDetails({
             onClick={() => void run(onFavorite)}
             disabled={pending}
             aria-pressed={recipe.isFavorite}
-            className={`flex items-center gap-2 rounded-full border border-[#e7d9ce] px-4 py-2 text-sm font-bold ${
-              recipe.isFavorite ? "bg-[#fff0f4] text-[#d63f68]" : "bg-white"
+            className={`flex items-center gap-2 rounded-full border border-outline px-4 py-2 text-sm font-bold ${
+              recipe.isFavorite ? "bg-pink-soft text-[#d63f68]" : "bg-surface"
             }`}
           >
             <Icon name="heart" size={18} filled={recipe.isFavorite} />
@@ -115,22 +115,22 @@ export default function RecipeDetails({
           <Macro
             value={`${recipe.protein}g`}
             label="proteína"
-            tone="bg-[#fff0f4] text-[#d63f68]"
+            tone="bg-pink-soft text-[#d63f68]"
           />
           <Macro
             value={`${recipe.carbs}g`}
             label="carbo"
-            tone="bg-[#fff6d8] text-[#9a6c00]"
+            tone="bg-yellow-soft text-[#9a6c00]"
           />
           <Macro
             value={`${recipe.fat}g`}
             label="gordura"
-            tone="bg-[#eef8dd] text-[#5f7f24]"
+            tone="bg-green-soft text-[#5f7f24]"
           />
           <Macro
             value={`${recipe.calories}`}
             label="kcal"
-            tone="bg-[#eee8fb] text-[#7655bd]"
+            tone="bg-purple-soft text-[#7655bd]"
           />
         </div>
         <div className="mt-8 grid gap-8 sm:grid-cols-2">
@@ -140,7 +140,7 @@ export default function RecipeDetails({
               {recipe.ingredients.map((item, index) => (
                 <li
                   key={index}
-                  className="flex gap-3 text-sm font-semibold text-[#66564d]"
+                  className="flex gap-3 text-sm font-semibold text-muted"
                 >
                   <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#b8e46c]">
                     <Icon name="check" size={12} />
@@ -150,7 +150,7 @@ export default function RecipeDetails({
               ))}
             </ul>
             {recipe.toppings && (
-              <div className="mt-5 rounded-2xl bg-[#fff6d8] p-4 text-sm text-[#66564d]">
+              <div className="mt-5 rounded-2xl bg-yellow-soft p-4 text-sm text-muted">
                 <strong>Toppings</strong>
                 <p className="mt-1 whitespace-pre-wrap">{recipe.toppings}</p>
               </div>
@@ -158,7 +158,7 @@ export default function RecipeDetails({
           </div>
           <div>
             <h3 className="font-display text-xl font-black">Como fazer</h3>
-            <ol className="mt-4 space-y-3 text-sm font-semibold leading-relaxed text-[#66564d]">
+            <ol className="mt-4 space-y-3 text-sm font-semibold leading-relaxed text-muted">
               {recipe.instructions.map((step, index) => (
                 <li key={index} className="flex gap-2">
                   <b>{index + 1}.</b>
@@ -168,10 +168,10 @@ export default function RecipeDetails({
             </ol>
           </div>
         </div>
-        <div className="mt-8 flex flex-col justify-between gap-4 rounded-3xl bg-white p-5 sm:flex-row sm:items-center">
+        <div className="mt-8 flex flex-col justify-between gap-4 rounded-3xl bg-surface p-5 sm:flex-row sm:items-center">
           <div>
             <strong className="block">Já provou? Avalie o sabor</strong>
-            <span className="text-xs font-semibold text-[#8a776b]">
+            <span className="text-xs font-semibold text-muted">
               {recipe.ownRating
                 ? `Sua nota: ${recipe.ownRating}/5. Você pode alterar quando quiser.`
                 : "Sua avaliação ajuda toda a comunidade."}
@@ -202,14 +202,14 @@ export default function RecipeDetails({
         {error && (
           <p
             role="alert"
-            className="mt-4 rounded-2xl bg-[#fff0f4] p-4 text-sm font-bold text-[#b92e53]"
+            className="mt-4 rounded-2xl bg-pink-soft p-4 text-sm font-bold text-[#b92e53]"
           >
             {error}
           </p>
         )}
         {onEdit && onDelete && (
-          <div className="mt-6 border-t border-[#e7d9ce] pt-5">
-            <p className="mb-3 text-xs font-bold text-[#8a776b]">
+          <div className="mt-6 border-t border-outline pt-5">
+            <p className="mb-3 text-xs font-bold text-muted">
               Esta receita é sua. Você pode atualizar ou excluir quando quiser.
             </p>
             <div className="flex flex-wrap gap-3">
@@ -223,7 +223,7 @@ export default function RecipeDetails({
               <button
                 disabled={pending}
                 onClick={onDelete}
-                className="rounded-full border border-[#e7d9ce] px-5 py-3 text-sm font-bold text-[#d63f68]"
+                className="rounded-full border border-outline px-5 py-3 text-sm font-bold text-[#d63f68]"
               >
                 Excluir minha receita
               </button>

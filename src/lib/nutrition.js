@@ -16,14 +16,25 @@ const normalize = (value) =>
     .trim()
 /** @type {Promise<FoodCatalog> | undefined} */
 let loading
+let loadedAt = 0
+export function invalidateFoodCatalog() {
+  loading = undefined
+  loadedAt = 0
+}
 
 // The shared catalog is served by Repassa Fácil and cached by the browser.
 /** @returns {Promise<FoodCatalog>} */
 export function loadFoodCatalog() {
-  if (!loading)
-    loading = requestApi("food-catalog", { cache: "force-cache" })
+  if (!loading || Date.now() - loadedAt > 60000) {
+    loadedAt = Date.now()
+    loading = requestApi("food-catalog", { cache: "no-store" })
       .then((data) => {
-        if (data.version !== 1 || data.source?.basisGrams !== 100 || !Array.isArray(data.foods) || !data.foods.length)
+        if (
+          data.version !== 1 ||
+          data.source?.basisGrams !== 100 ||
+          !Array.isArray(data.foods) ||
+          !data.foods.length
+        )
           throw new Error("Tabela de alimentos inválida.")
         return createFoodCatalog(data.foods)
       })
@@ -31,6 +42,7 @@ export function loadFoodCatalog() {
         loading = undefined
         throw error
       })
+  }
   return loading
 }
 
@@ -60,7 +72,9 @@ export const hasCompleteNutrition = (food) =>
 function compareFoodCalories(a, b) {
   /** @param {LocalFood} food */
   const calories = (food) =>
-    typeof food.calories === "number" && Number.isFinite(food.calories) && food.calories >= 0
+    typeof food.calories === "number" &&
+    Number.isFinite(food.calories) &&
+    food.calories >= 0
       ? food.calories
       : Infinity
   const first = calories(a)
@@ -70,9 +84,11 @@ function compareFoodCalories(a, b) {
 
 /** @param {string} name @param {string} identifier @param {string[]} words */
 function matchesTerms(name, identifier, words) {
-  return words.length > 0 && (
-    words.every((word) => name.includes(word)) ||
-    (words.some((word) => /\d/.test(word)) && words.every((word) => identifier.includes(word)))
+  return (
+    words.length > 0 &&
+    (words.every((word) => name.includes(word)) ||
+      (words.some((word) => /\d/.test(word)) &&
+        words.every((word) => identifier.includes(word))))
   )
 }
 
@@ -165,7 +181,62 @@ export const foodDescriptions = (items) =>
       } de ${item.food.name}`,
   )
 
-/** @typedef {{foods: LocalFood[], total: number, source: string, fallback: boolean}} FoodResults */
+/** @typedef {{foods: LocalFood[], total: number, source: string, fallback: boolean, nextCursor?: string | null, sourceDiagnostics?: Record<string, string>, providerTotals?: Record<string, number | null>}} FoodResults */
+
+/** @param {FoodCatalog} catalog @param {string} query @param {string} [cursor] @param {AbortSignal} [signal] @param {LocalFood[]} [previous] @returns {Promise<FoodResults>} */
+export async function searchFoodPage(
+  catalog,
+  query,
+  cursor = "0,0",
+  signal,
+  previous = [],
+) {
+  if (normalize(query).length < 2)
+    return {
+      foods: [],
+      total: 0,
+      source: "Todas",
+      fallback: false,
+      nextCursor: null,
+    }
+  const barcode = /^\d{8,14}$/.test(query.trim())
+  let api
+  try {
+    api = barcode
+      ? await searchFoodApi(query, 20, signal)
+      : await requestApi(`foods?${new URLSearchParams({ q: query, cursor })}`, {
+          signal,
+          cache: "no-store",
+        })
+    if (!Array.isArray(api.foods))
+      throw new Error("Resposta de alimentos inválida.")
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error
+    api = {
+      foods: [],
+      nextCursor: barcode ? null : cursor,
+      sourceDiagnostics: { remote: "unavailable" },
+    }
+  }
+  const local = barcode
+    ? []
+    : searchFoods(catalog, query, Number.MAX_SAFE_INTEGER).foods
+  const foods = [
+    ...new Map(
+      [...previous, ...local, ...api.foods].map((food) => [food.id, food]),
+    ).values(),
+  ]
+    .filter((food) => barcode || matchesFoodQuery(food, query))
+    .sort(compareFoodCalories)
+  return {
+    ...api,
+    foods,
+    total: foods.length,
+    source: "Todas",
+    fallback: false,
+    nextCursor: barcode ? null : (api.nextCursor ?? null),
+  }
+}
 /** @param {string} query @param {number} limit @param {AbortSignal} [signal] */
 export async function searchFoodApi(query, limit, signal) {
   const barcode = /^\d{8,14}$/.test(query.trim())
@@ -173,10 +244,14 @@ export async function searchFoodApi(query, limit, signal) {
     [barcode ? "barcode" : "q"]: query,
     limit: String(limit),
   })
-  const data = await requestApi(`foods?${params}`, { signal })
+  const data = await requestApi(`foods?${params}`, { signal, cache: "no-store" })
   if (!Array.isArray(data.foods) || !Number.isInteger(data.total))
     throw new Error("Resposta de alimentos inválida.")
-  const foods = barcode ? data.foods : data.foods.filter((/** @type {LocalFood} */ food) => matchesFoodQuery(food, query))
+  const foods = barcode
+    ? data.foods
+    : data.foods.filter((/** @type {LocalFood} */ food) =>
+        matchesFoodQuery(food, query),
+      )
   return /** @type {{foods: LocalFood[], total: number}} */ ({
     ...data,
     foods,
@@ -187,7 +262,10 @@ export async function searchFoodApi(query, limit, signal) {
 /** @param {string[]} ids @param {AbortSignal} [signal] @returns {Promise<LocalFood[]>} */
 export async function restoreApiFoods(ids, signal) {
   if (!ids.length) return []
-  const data = await requestApi(`foods?${new URLSearchParams({ ids: ids.join(",") })}`, { signal })
+  const data = await requestApi(
+    `foods?${new URLSearchParams({ ids: ids.join(",") })}`,
+    { signal },
+  )
   if (!Array.isArray(data.foods))
     throw new Error("Resposta de alimentos inválida.")
   return data.foods
@@ -205,8 +283,15 @@ export async function searchFoodsWithFallback(
     return { foods: [], total: 0, source: "TBCA", fallback: false }
   const local = searchFoods(catalog, query, limit, "TBCA")
   const api = await remote(query, limit).catch(() => ({ foods: [], total: 0 }))
-  const foods = [...new Map([...api.foods, ...local.foods].map((food) => [food.id, food])).values()]
-    .filter((food) => /^\d{8,14}$/.test(query.trim()) || matchesFoodQuery(food, query))
+  const foods = [
+    ...new Map(
+      [...api.foods, ...local.foods].map((food) => [food.id, food]),
+    ).values(),
+  ]
+    .filter(
+      (food) =>
+        /^\d{8,14}$/.test(query.trim()) || matchesFoodQuery(food, query),
+    )
     .sort(compareFoodCalories)
   return {
     foods: foods.slice(0, limit),

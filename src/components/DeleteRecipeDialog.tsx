@@ -43,7 +43,7 @@ export default function DeleteRecipeDialog({
         >
           Excluir minha receita?
         </h2>
-        <p className="mt-4 text-sm leading-relaxed text-[#78665b]">
+        <p className="mt-4 text-sm leading-relaxed text-muted">
           A receita <strong>{recipe.title}</strong> será excluída do site junto
           com suas avaliações e favoritos. Essa ação não pode ser desfeita.
         </p>
@@ -63,7 +63,7 @@ export default function DeleteRecipeDialog({
           <button
             disabled={pending}
             onClick={onClose}
-            className="rounded-full border border-[#e7d9ce] bg-white px-6 py-3 text-sm font-bold"
+            className="rounded-full border border-outline bg-surface px-6 py-3 text-sm font-bold"
           >
             Cancelar
           </button>

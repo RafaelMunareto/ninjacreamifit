@@ -40,7 +40,9 @@ export function setSessionTokenProvider(provider) {
 
 /** @param {string} action @param {Record<string, unknown>} [data] @returns {Promise<any>} */
 async function request(action, data = {}) {
-  const sessionToken = sessionTokenProvider ? await sessionTokenProvider() : null
+  const sessionToken = sessionTokenProvider
+    ? await sessionTokenProvider()
+    : null
   const result = await requestApi("creami", {
     method: "POST",
     cache: "no-store",
@@ -171,6 +173,10 @@ export async function rateRecipe(id, value) {
 export async function saveProfile(name) {
   await request("profile", { name })
   notify()
+}
+/** @param {import("../types").LocalFood} food @returns {Promise<import("../types").LocalFood>} */
+export async function saveSharedFood(food) {
+  return request("saveFood", { food })
 }
 /** @param {string} password */
 export async function setupAdmin(password) {

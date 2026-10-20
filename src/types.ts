@@ -26,6 +26,8 @@ export interface LocalFood {
   carbs: number | null
   fat: number | null
   calories: number | null
+  barcode?: string
+  basisUnit?: "g" | "ml"
   traces?: NutrientKey[]
 }
 
