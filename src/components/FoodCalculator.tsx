@@ -23,6 +23,8 @@ import {
   searchFoodsWithFallback,
 } from "../lib/nutrition.js"
 import { requestApi } from "../lib/http.js"
+import { createSpeechInput } from "../lib/speech-input.js"
+import { parseSpokenFood } from "../lib/voice-food.js"
 import Icon from "./Icon"
 
 type FoodLine = {
@@ -37,23 +39,9 @@ type AiSuggestion = {
   quantity?: number
   unit?: "g" | "ml"
   matchedFood?: LocalFood
+  lookupComplete?: boolean
 }
 type Catalog = Awaited<ReturnType<typeof loadFoodCatalog>>
-type VoiceQuantity = { quantity: number; unit: "g" | "ml" }
-type SpeechRecognitionEventLike = Event & {
-  results: ArrayLike<ArrayLike<{ transcript: string }>>
-}
-type SpeechRecognitionLike = {
-  lang: string
-  continuous: boolean
-  interimResults: boolean
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null
-  onerror: (() => void) | null
-  onend: (() => void) | null
-  start: () => void
-  stop: () => void
-}
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
 type Props = {
   initialItems: FoodReference[]
   initialLabels: string[]
@@ -97,7 +85,8 @@ export default function FoodCalculator({
   const [aiMessage, setAiMessage] = useState("")
   const [aiError, setAiError] = useState("")
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([])
-  const [listening, setListening] = useState(false)
+  const [voicePhase, setVoicePhase] = useState<"idle" | "starting" | "listening" | "stopping">("idle")
+  const [voiceTranscript, setVoiceTranscript] = useState("")
   const [processingVoice, setProcessingVoice] = useState(false)
   const [manualOpen, setManualOpen] = useState(false)
   const [manualFood, setManualFood] = useState({
@@ -114,8 +103,9 @@ export default function FoodCalculator({
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const scanStreamRef = useRef<MediaStream | null>(null)
   const scannerControlsRef = useRef<IScannerControls | null>(null)
-  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null)
-  const voiceResultRef = useRef(false)
+  const speechRecognitionRef = useRef<ReturnType<typeof createSpeechInput> | null>(null)
+  const voiceLookupRef = useRef<AbortController | null>(null)
+  const voiceGenerationRef = useRef(0)
   const [error, setError] = useState("")
   const [restoreError, setRestoreError] = useState("")
   const [retry, setRetry] = useState(0)
@@ -245,125 +235,94 @@ export default function FoodCalculator({
     setManualOpen(false)
     setSearchError("")
   }
-  const suggestVoiceFood = async (transcript: string) => {
-    let spokenFood = transcript
-    let detectedQuantity: VoiceQuantity | undefined
-    const quantityMatch = transcript.match(
-      /(\d+(?:[,.]\d+)?)\s*(kg|quilo(?:s)?|g|grama(?:s)?|ml|mililitro(?:s)?)/i,
-    )
-    if (quantityMatch) {
-      let quantity = Number(quantityMatch[1].replace(",", "."))
-      const rawUnit = quantityMatch[2].toLocaleLowerCase("pt-BR")
-      const unit = /ml|mililitro/.test(rawUnit) ? "ml" : "g"
-      if (unit === "g" && /kg|quilo/.test(rawUnit)) quantity *= 1000
-      if (quantity > 0 && quantity <= 10000)
-        detectedQuantity = { quantity, unit }
-      spokenFood = transcript.replace(quantityMatch[0], "").trim()
-    }
-    spokenFood = spokenFood
-      .replace(
-        /^(?:adicione|adicionar|registrar|registre|coloque|incluir)\s+/i,
-        "",
-      )
-      .trim()
-    if (spokenFood.length < 2) {
-      setSearchError("Diga o nome do alimento, por exemplo: banana 150 gramas.")
-      setProcessingVoice(false)
-      return
-    }
-    const suggestion: AiSuggestion = {
-      food: spokenFood,
-      brand: "",
-      ...(detectedQuantity || {}),
-    }
-    setAiSuggestions([suggestion])
-    setAiMessage(
-      `Sugestão por voz: ${spokenFood}${detectedQuantity ? ` · ${detectedQuantity.quantity} ${detectedQuantity.unit}` : ""}`,
-    )
-    if (!catalog) {
-      setProcessingVoice(false)
-      return
-    }
+  const suggestVoiceFood = async (transcript: string, generation: number) => {
+    let suggestion: AiSuggestion
     try {
-      const localMatch = searchFoods(catalog, spokenFood, 5, source).foods.find(
-        hasCompleteNutrition,
-      )
-      const match =
-        localMatch ||
-        (
-          await searchFoodsWithFallback(
-            catalog,
-            spokenFood,
-            5,
-            source,
-            (term, count) => searchFoodApi(term, count),
-          )
-        ).foods.find(hasCompleteNutrition)
-      setAiSuggestions((current) =>
-        current.map((item) => ({ ...item, matchedFood: match })),
-      )
-    } catch {
-      setSearchError(
-        "Reconheci o alimento, mas não consegui buscar os nutrientes agora. Tente novamente.",
-      )
-    } finally {
+      suggestion = { ...parseSpokenFood(transcript), brand: "" }
+    } catch (cause) {
+      setSearchError(cause instanceof Error ? cause.message : "Não consegui identificar o alimento.")
       setProcessingVoice(false)
+      return
+    }
+    setProcessingVoice(true)
+    setAiSuggestions([suggestion])
+    setAiMessage(`Sugestão por voz: ${suggestion.food}${suggestion.quantity ? ` · ${suggestion.quantity} ${suggestion.unit}` : ""}`)
+    const controller = new AbortController()
+    voiceLookupRef.current = controller
+    const timeout = window.setTimeout(() => controller.abort(), 8000)
+    try {
+      const localMatch = catalog && searchFoods(catalog, suggestion.food, 5, source).foods.find(hasCompleteNutrition)
+      const match = localMatch || (await searchFoodApi(suggestion.food, 5, controller.signal)).foods.find(hasCompleteNutrition)
+      if (generation !== voiceGenerationRef.current) return
+      setAiSuggestions((current) => current.map((item) => item.food === suggestion.food
+        ? { ...item, matchedFood: match, lookupComplete: true } : item))
+      if (!match) setSearchError("Entendi sua fala, mas não encontrei os nutrientes. Ajuste o nome na busca ou inclua o alimento manualmente.")
+    } catch {
+      if (generation !== voiceGenerationRef.current) return
+      setAiSuggestions((current) => current.map((item) => item.food === suggestion.food ? { ...item, lookupComplete: true } : item))
+      setSearchError("Entendi sua fala, mas a busca demorou ou ficou indisponível. Tente buscar o alimento pelo nome.")
+    } finally {
+      window.clearTimeout(timeout)
+      if (generation === voiceGenerationRef.current) {
+        voiceLookupRef.current = null
+        setProcessingVoice(false)
+      }
     }
   }
   const startVoiceInput = () => {
-    const speechWindow = window as Window & {
-      SpeechRecognition?: SpeechRecognitionConstructor
-      webkitSpeechRecognition?: SpeechRecognitionConstructor
-    }
-    if (listening) {
-      setProcessingVoice(true)
+    if (voicePhase === "listening") {
       speechRecognitionRef.current?.stop()
       return
     }
-    const Constructor =
-      speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
-    if (!Constructor) {
-      setSearchError(
-        "Seu navegador não oferece reconhecimento de voz. Use Chrome ou Safari atualizado.",
-      )
-      return
-    }
-    const recognition = new Constructor()
-    recognition.lang = "pt-BR"
-    recognition.continuous = false
-    recognition.interimResults = false
-    recognition.onresult = (event) => {
-      const transcript = String(event.results[0]?.[0]?.transcript || "")
-        .trim()
-        .replace(/\s+/g, " ")
-      if (!transcript) return
-      voiceResultRef.current = true
-      setProcessingVoice(true)
-      setSearchError("")
-      void suggestVoiceFood(transcript)
-    }
-    recognition.onerror = () => {
-      setListening(false)
-      setProcessingVoice(false)
-      setSearchError("Não consegui entender o áudio. Fale novamente em português.")
-    }
-    recognition.onend = () => {
-      setListening(false)
-      speechRecognitionRef.current = null
-      if (!voiceResultRef.current) {
-        setProcessingVoice(false)
-        setSearchError("Não consegui ouvir o alimento. Fale novamente.")
-      }
-    }
-    speechRecognitionRef.current = recognition
-    voiceResultRef.current = false
+    if (voicePhase !== "idle" || processingVoice || identifyingPhoto) return
+    speechRecognitionRef.current?.cancel()
+    voiceLookupRef.current?.abort()
+    const generation = ++voiceGenerationRef.current
     setSearchError("")
-    setAiMessage("Pode falar o alimento e a quantidade, por exemplo: banana 150 gramas.")
-    setListening(true)
-    recognition.start()
+    setAiError("")
+    setAiSuggestions([])
+    setVoiceTranscript("")
+    setAiMessage("")
+    if (scanning) closeScanner()
+    const speech = createSpeechInput({
+      onState: setVoicePhase,
+      onPreview: setVoiceTranscript,
+      onTranscript: (transcript) => void suggestVoiceFood(transcript, generation),
+      onError: (message) => {
+        setProcessingVoice(false)
+        setSearchError(message)
+      },
+    })
+    speechRecognitionRef.current = speech
+    speech.start()
   }
 
-  useEffect(() => () => speechRecognitionRef.current?.stop(), [])
+  useEffect(() => {
+    const interrupt = () => {
+      speechRecognitionRef.current?.cancel({ notify: true, message: "A gravação foi interrompida. Toque em Falar alimento para tentar novamente." })
+      if (voiceLookupRef.current) {
+        ++voiceGenerationRef.current
+        voiceLookupRef.current.abort()
+        voiceLookupRef.current = null
+        setProcessingVoice(false)
+        setAiSuggestions([])
+        setSearchError("A busca por voz foi interrompida. Toque em Falar alimento para tentar novamente.")
+      }
+    }
+    const visibility = () => { if (document.visibilityState === "hidden") interrupt() }
+    document.addEventListener("visibilitychange", visibility)
+    window.addEventListener("pagehide", interrupt)
+    return () => {
+      document.removeEventListener("visibilitychange", visibility)
+      window.removeEventListener("pagehide", interrupt)
+      ++voiceGenerationRef.current
+      speechRecognitionRef.current?.cancel()
+      voiceLookupRef.current?.abort()
+    }
+  }, [])
+  const listening = voicePhase === "listening"
+  const voiceBusy = voicePhase !== "idle" || processingVoice
+  const voiceWaiting = voicePhase === "starting" || voicePhase === "stopping" || processingVoice
   const add = (food: LocalFood, suggestion?: AiSuggestion) => {
     if (items.length >= 50 || !hasCompleteNutrition(food)) return
     const quantity = suggestion?.quantity ?? 100
@@ -453,7 +412,9 @@ export default function FoodCalculator({
       setSearchError("A foto deve ter no máximo 6 MB.")
       return
     }
+    const generation = ++voiceGenerationRef.current
     setIdentifyingPhoto(true)
+    setAiSuggestions([])
     setAiMessage("")
     setAiError("")
     setSearchError("")
@@ -469,6 +430,7 @@ export default function FoodCalculator({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image }),
       })
+      if (generation !== voiceGenerationRef.current) return
       const quantity = Number(result.quantity)
       const rawSuggestions = (
         Array.isArray(result.foods) ? result.foods : [result]
@@ -522,10 +484,12 @@ export default function FoodCalculator({
             }
           }),
         ).then((matches) => {
+          if (generation !== voiceGenerationRef.current) return
           setAiSuggestions((current) =>
             current.map((item, index) => ({
               ...item,
               matchedFood: matches[index],
+              lookupComplete: true,
             })),
           )
         })
@@ -573,8 +537,12 @@ export default function FoodCalculator({
   }
 
   const rejectAiSuggestion = () => {
+    ++voiceGenerationRef.current
+    voiceLookupRef.current?.abort()
+    voiceLookupRef.current = null
+    setProcessingVoice(false)
     setAiSuggestions([])
-    setAiMessage("Sugestão da IA recusada.")
+    setAiMessage("Sugestões descartadas.")
   }
 
   return (
@@ -652,34 +620,34 @@ export default function FoodCalculator({
             <button
               type="button"
               onClick={startVoiceInput}
-              disabled={processingVoice}
+              disabled={voiceWaiting || identifyingPhoto}
               aria-pressed={listening}
-              aria-busy={processingVoice}
+              aria-busy={voiceWaiting}
               className={`rounded-full px-4 py-2.5 text-xs font-bold text-white transition disabled:cursor-wait disabled:opacity-70 ${
-                processingVoice
+                voiceWaiting
                   ? "animate-pulse bg-[#6950a8]"
                   : listening
                     ? "animate-pulse bg-[#b92e53]"
                     : "bg-[#52642f] hover:bg-[#435326]"
               }`}
             >
-              {processingVoice
-                ? "Analisando fala…"
-                : listening
-                  ? "Parar e analisar"
-                  : "🎙️ Falar alimento"}
+              {voicePhase === "starting" ? "Ativando microfone…"
+                : voicePhase === "stopping" ? "Concluindo gravação…"
+                  : processingVoice ? "Buscando alimento…"
+                    : listening ? "Parar e analisar" : "🎙️ Falar alimento"}
             </button>
             <button
               type="button"
               onClick={() => void scanBarcode()}
-              className="rounded-full bg-[#ef4f78] px-4 py-2.5 text-xs font-bold text-white"
+              disabled={voiceBusy}
+              className="rounded-full bg-[#ef4f78] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
             >
               {scanning ? "Lendo código…" : "Cod de barras"}
             </button>
             <button
               type="button"
               onClick={() => aiPhotoRef.current?.click()}
-              disabled={identifyingPhoto}
+              disabled={identifyingPhoto || voiceBusy}
               aria-busy={identifyingPhoto}
               className="rounded-full border border-[#9b7de1] bg-[#b79af6] px-4 py-2.5 text-xs font-extrabold text-[#342820] transition hover:bg-[#a688eb] disabled:cursor-wait disabled:opacity-60"
             >
@@ -703,7 +671,12 @@ export default function FoodCalculator({
               aria-label="Tirar foto do alimento para identificar com IA"
             />
           </div>
-          {(listening || processingVoice) && (
+          {voiceTranscript && (
+            <p aria-label="Transcrição da fala" aria-live="polite" className="mt-3 text-sm text-[#78665b]">
+              Você disse: “{voiceTranscript}”
+            </p>
+          )}
+          {voiceBusy && (
             <div
               role="status"
               aria-live="polite"
@@ -727,12 +700,15 @@ export default function FoodCalculator({
                 </span>
                 <span>
                   <strong className="block text-sm text-[#342820]">
-                    {processingVoice ? "Analisando sua fala" : "Ouvindo o alimento"}
+                    {voicePhase === "starting" ? "Ativando o microfone"
+                      : voicePhase === "stopping" ? "Concluindo a gravação"
+                        : processingVoice ? "Buscando os nutrientes" : "Ouvindo o alimento"}
                   </strong>
                   <span className="mt-0.5 block text-xs text-[#78665b]">
-                    {processingVoice
-                      ? "Buscando o alimento, a quantidade e os nutrientes…"
-                      : "Fale o alimento e a quantidade. Toque no botão novamente para processar."}
+                    {voicePhase === "starting" ? "Se o Safari pedir, permita o acesso ao microfone."
+                      : voicePhase === "stopping" ? "Aguardando as últimas palavras reconhecidas…"
+                        : processingVoice ? "Sua fala foi reconhecida. Buscando o alimento e a quantidade…"
+                          : "Fale o alimento e a quantidade. Toque novamente para concluir."}
                   </span>
                 </span>
               </div>
@@ -784,15 +760,18 @@ export default function FoodCalculator({
               </div>
             </div>
           )}
-          {query.trim().length >= 2 && (
+          {searchError && (
+            <p role="alert" className="mt-3 rounded-xl bg-[#fff2f5] p-3 text-sm text-[#9b2448]">
+              {searchError}
+            </p>
+          )}
+          {query.trim().length >= 2 && !searchError && (
             <p role="status" className="mt-3 text-xs text-[#8a776b]">
               {searching
                 ? "Buscando alimento…"
-                : searchError
-                  ? searchError
-                  : results.total
-                    ? `${results.total.toLocaleString("pt-BR")} alimentos encontrados`
-                    : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
+                : results.total
+                  ? `${results.total.toLocaleString("pt-BR")} alimentos encontrados`
+                  : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
             </p>
           )}
           <div className="mt-3 rounded-2xl border border-[#eadfd5] bg-[#fffaf3] p-3">
@@ -931,7 +910,7 @@ export default function FoodCalculator({
             {!!aiSuggestions.length && (
               <div className="order-1 mt-4 rounded-2xl border border-[#cfc0f5] bg-[#faf7ff] p-4">
                 <p className="text-xs font-extrabold uppercase tracking-wide text-[#6950a8]">
-                  Sugestões da IA — confirme antes de adicionar
+                  Confirme o alimento antes de adicionar
                 </p>
                 <div className="mt-3 space-y-3">
                   {aiSuggestions.map((aiSuggestion) => (
@@ -1015,7 +994,7 @@ export default function FoodCalculator({
                           ? "Informe a quantidade"
                           : aiSuggestion.matchedFood
                             ? "Aceitar e adicionar"
-                            : "Buscando dados…"}
+                            : aiSuggestion.lookupComplete ? "Sem dados nutricionais" : "Buscando dados…"}
                       </button>
                     </div>
                   ))}
