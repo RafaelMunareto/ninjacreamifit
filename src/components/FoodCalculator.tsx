@@ -217,14 +217,15 @@ export default function FoodCalculator({
     }
   }, [catalog, deferredQuery])
 
-  const loadMore = async () => {
+  const loadMore = async (expand = true) => {
     if (!catalog || searching || moreRequest.current) return
-    setLimit((value) => value + 20)
+    if (expand) setLimit((value) => value + 20)
     if (!results.nextCursor) return
     const version = queryVersion.current
     const controller = new AbortController()
     moreRequest.current = controller
     setSearching(true)
+    setSearchError("")
     try {
       const data = await searchFoodPage(
         catalog,
@@ -952,6 +953,25 @@ export default function FoodCalculator({
                   : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
             </p>
           )}
+          {!searching &&
+            results.nextCursor &&
+            Object.values(results.sourceDiagnostics || {}).some(
+              (status) => status !== "ok",
+            ) && (
+              <div className="mt-3 rounded-2xl border border-outline bg-yellow-soft p-3 text-sm text-[#52642f]">
+                <p role="status">
+                  Algumas bases de alimentos estão temporariamente
+                  indisponíveis. A lista ainda pode estar incompleta.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void loadMore(false)}
+                  className="mt-2 rounded-full border border-current px-4 py-2 text-xs font-extrabold"
+                >
+                  Tentar busca novamente
+                </button>
+              </div>
+            )}
           <div className="mt-3 rounded-2xl border border-outline bg-page p-3">
             <button
               type="button"
