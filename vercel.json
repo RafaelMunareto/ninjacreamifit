@@ -5,6 +5,8 @@
   },
   "rewrites": [
     { "source": "/receitas/nova", "destination": "/index.html" },
-    { "source": "/receitas/nova/", "destination": "/index.html" }
+    { "source": "/receitas/nova/", "destination": "/index.html" },
+    { "source": "/receitas/:id/editar", "destination": "/index.html" },
+    { "source": "/receitas/:id/editar/", "destination": "/index.html" }
   ]
 }

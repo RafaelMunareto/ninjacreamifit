@@ -1,29 +1,31 @@
 import { useEffect, useRef, useState } from "react"
 import { Show, SignInButton, UserButton } from "@clerk/react"
-import type { AdminDetails, RecipeInput, Snapshot } from "../types"
+import type { Snapshot } from "../types"
 import * as api from "../lib/api.js"
 import { categories } from "../data/recipes.js"
 import Icon from "./Icon"
 import Modal from "./Modal"
-import RecipeForm from "./RecipeForm"
 
 export default function AdminPanel({
   snapshot,
+  notice,
+  onNotice,
+  onEdit,
   onClose,
 }: {
   snapshot: Snapshot
+  notice: string
+  onNotice: (notice: string) => void
+  onEdit: (id: string) => void
   onClose: () => void
 }) {
   const { authenticated } = snapshot.admin
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
-  const [notice, setNotice] = useState("")
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState("Todos")
-  const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const locked = useRef(false)
-  const editing = snapshot.recipes.find((recipe) => recipe.id === editingId)
   const deleting = snapshot.recipes.find((recipe) => recipe.id === deletingId)
   const recipes = api.filterRecipes(snapshot.recipes, { query, category })
   const totalVotes = snapshot.recipes.reduce(
@@ -33,15 +35,9 @@ export default function AdminPanel({
 
   useEffect(() => {
     if (!authenticated) {
-      setEditingId(null)
       setDeletingId(null)
     }
   }, [authenticated])
-  useEffect(() => {
-    if (!notice) return
-    const timeout = window.setTimeout(() => setNotice(""), 6000)
-    return () => window.clearTimeout(timeout)
-  }, [notice])
 
   const run = async (action: () => Promise<void>) => {
     if (locked.current) return
@@ -56,16 +52,6 @@ export default function AdminPanel({
       locked.current = false
       setBusy(false)
     }
-  }
-  const save = async (
-    input: RecipeInput,
-    id?: string,
-    details?: AdminDetails,
-  ) => {
-    if (!id || !details) throw new Error("Selecione uma receita para editar.")
-    await api.saveRecipe(input, id, details)
-    setEditingId(null)
-    setNotice("Receita, macros e avaliações atualizados!")
   }
 
   return (
@@ -220,7 +206,7 @@ export default function AdminPanel({
                   <div className="flex shrink-0 gap-2">
                     <button
                       onClick={() => {
-                        setEditingId(recipe.id)
+                        onEdit(recipe.id)
                         setError("")
                       }}
                       className="flex-1 rounded-full bg-[#342820] px-5 py-3 text-sm font-bold text-white"
@@ -255,16 +241,6 @@ export default function AdminPanel({
           </>
         )}
       </div>
-      {authenticated && editing && (
-        <RecipeForm
-          key={editing.id}
-          adminMode
-          recipe={editing}
-          author={editing.author}
-          onSave={save}
-          onClose={() => setEditingId(null)}
-        />
-      )}
       {authenticated && deleting && (
         <Modal
           titleId="admin-delete-title"
@@ -296,7 +272,7 @@ export default function AdminPanel({
                   void run(async () => {
                     await api.deleteRecipe(deleting.id)
                     setDeletingId(null)
-                    setNotice("Receita excluída do catálogo.")
+                    onNotice("Receita excluída do catálogo.")
                   })
                 }
                 className="rounded-full bg-[#d63f68] px-6 py-3 text-sm font-bold text-white"
@@ -320,7 +296,7 @@ export default function AdminPanel({
           className="fixed inset-x-4 bottom-5 z-[60] mx-auto flex max-w-lg items-center justify-between gap-3 rounded-2xl bg-[#342820] px-5 py-4 text-sm font-bold text-white shadow-xl"
         >
           <span>{notice}</span>
-          <button onClick={() => setNotice("")} aria-label="Fechar aviso">
+          <button onClick={() => onNotice("")} aria-label="Fechar aviso">
             <Icon name="close" size={18} />
           </button>
         </div>

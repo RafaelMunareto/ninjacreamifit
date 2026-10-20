@@ -28,6 +28,7 @@ export default function RecipeForm({
   onSave,
   adminMode = false,
   page = false,
+  backLabel = "Voltar às receitas",
 }: {
   recipe?: Recipe
   author: string
@@ -39,18 +40,21 @@ export default function RecipeForm({
   ) => Promise<void>
   adminMode?: boolean
   page?: boolean
+  backLabel?: string
 }) {
   const titleRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     if (!page) return
     const previousTitle = document.title
-    document.title = "Nova receita · Ninja CREAMi Fit"
+    document.title = `${
+      recipe ? "Editar receita" : "Nova receita"
+    } · Ninja CREAMi Fit`
     window.scrollTo({ top: 0 })
     titleRef.current?.focus({ preventScroll: true })
     return () => {
       document.title = previousTitle
     }
-  }, [page])
+  }, [page, recipe?.id])
   const [hasToppings, setHasToppings] = useState(Boolean(recipe?.toppings))
   const [photo, setPhoto] = useState(recipe?.image || "")
   const [photoError, setPhotoError] = useState("")
@@ -617,7 +621,7 @@ export default function RecipeForm({
               <span className="rotate-180">
                 <Icon name="arrow" size={16} />
               </span>
-              Voltar às receitas
+              {backLabel}
             </button>
           </div>
         </header>

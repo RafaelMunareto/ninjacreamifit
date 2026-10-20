@@ -15,7 +15,7 @@ npm run build
 
 No desenvolvimento, o proxy usa `http://127.0.0.1:5075`. Para outro host, configure `REPASSAFACIL_API_URL` em `.env.local` e reinicie o Vite. Em produção, o proxy usa `https://repassafacil-api.onrender.com` por padrão. `REPASSAFACIL_API_URL` permite trocar esse destino. As rotas CREAMi precisam estar publicadas nessa API. A URL deve conter somente a origem HTTPS do Repassa Fácil, sem `/api`. O frontend continua com sua chave pública `VITE_CLERK_PUBLISHABLE_KEY`; chaves privadas de Clerk, FatSecret, IA e banco pertencem ao Repassa Fácil.
 
-A inclusão de receitas abre a página `/receitas/nova`, com formulário mais largo no desktop e seções empilhadas no celular. A página permite acesso direto, recarregamento e navegação pelos botões Voltar e Avançar do navegador. O envio mantém fotos, alimentos e pesos no mesmo contrato da API; falhas de envio preservam os campos para tentar novamente.
+A inclusão de receitas abre a página `/receitas/nova`; a edição, em Minhas receitas e na administração, usa o mesmo formulário em `/receitas/:id/editar`, preenchido com os dados salvos. O formulário é mais largo no desktop e tem seções empilhadas no celular. As páginas permitem acesso direto, recarregamento e navegação pelos botões Voltar e Avançar do navegador. O envio mantém fotos, alimentos e pesos no mesmo contrato da API; falhas de envio preservam os campos para tentar novamente.
 
 O catálogo de alimentos vem da API e é guardado no cache do navegador. A busca local e o cálculo por peso continuam disponíveis depois de carregar a tabela. A consulta remota e a publicação de receitas exigem conexão. Os códigos e pesos dos alimentos são preservados. A busca combina as fontes sem duplicar códigos retornados localmente e pela API.
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useAuth, Show, SignInButton, UserButton } from "@clerk/react"
-import type { Recipe, RecipeInput, Snapshot } from "./types"
+import type { AdminDetails, Recipe, RecipeInput, Snapshot } from "./types"
 import { categories } from "./data/recipes.js"
 import * as api from "./lib/api.js"
 import Icon from "./components/Icon"
@@ -10,7 +10,7 @@ import RecipeForm from "./components/RecipeForm"
 import ProfileModal from "./components/ProfileModal"
 import AdminPanel from "./components/AdminPanel"
 import DeleteRecipeDialog from "./components/DeleteRecipeDialog"
-import useNewRecipePage from "./lib/useNewRecipePage"
+import useRecipePage from "./lib/useRecipePage"
 
 const EMPTY_RECIPES: Recipe[] = []
 
@@ -120,9 +120,7 @@ function RecipeCard({
         </button>
         {onEdit && onDelete && (
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-outline pt-3">
-            <span className="text-xs font-bold text-muted">
-              Sua receita
-            </span>
+            <span className="text-xs font-bold text-muted">Sua receita</span>
             <div className="flex gap-2">
               <button
                 onClick={onEdit}
@@ -148,8 +146,15 @@ function RecipeCard({
 
 export default function App() {
   const { getToken, isLoaded, userId } = useAuth()
-  const { isNewRecipePage, openNewRecipe, closeRecipePage, finishRecipePage } =
-    useNewRecipePage()
+  const {
+    isRecipePage,
+    editingRecipeId,
+    fromAdmin,
+    openNewRecipe,
+    openEditRecipe,
+    closeRecipePage,
+    finishRecipePage,
+  } = useRecipePage()
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [databaseError, setDatabaseError] = useState("")
@@ -158,12 +163,10 @@ export default function App() {
   const [query, setQuery] = useState("")
   const [collection, setCollection] = useState("all")
   const [sort, setSort] = useState("recent")
-  const [showSubmit, setShowSubmit] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showProfile, setShowProfile] = useState(false)
-  const [showAdmin, setShowAdmin] = useState(false)
+  const [showAdmin, setShowAdmin] = useState(fromAdmin)
   const [mobileMenu, setMobileMenu] = useState(false)
   const [notice, setNotice] = useState("")
 
@@ -210,7 +213,7 @@ export default function App() {
 
   const recipes = snapshot?.recipes ?? EMPTY_RECIPES
   const selected = recipes.find((recipe) => recipe.id === selectedId)
-  const editing = recipes.find((recipe) => recipe.id === editingId)
+  const editing = recipes.find((recipe) => recipe.id === editingRecipeId)
   const deleting = recipes.find((recipe) => recipe.id === deletingId)
   const visibleRecipes = useMemo(
     () =>
@@ -252,9 +255,10 @@ export default function App() {
       setNotice("Aguarde o carregamento das receitas e tente novamente.")
       return
     }
-    setEditingId(null)
     setSelectedId(null)
     setShowProfile(false)
+    setShowAdmin(false)
+    setMobileMenu(false)
     openNewRecipe()
   }
   const openProfile = () => {
@@ -264,21 +268,27 @@ export default function App() {
     }
     setShowProfile(true)
   }
-  const saveRecipe = async (input: RecipeInput, id?: string) => {
-    const savedId = await api.saveRecipe(input, id)
-    if (isNewRecipePage) finishRecipePage()
-    setShowSubmit(false)
-    setEditingId(null)
-    setSelectedId(savedId)
+  const saveRecipe = async (
+    input: RecipeInput,
+    id?: string,
+    details?: AdminDetails,
+  ) => {
+    const savedId = await api.saveRecipe(input, id, details)
+    const returningToAdmin = fromAdmin && !!snapshot?.admin.authenticated
+    setShowAdmin(returningToAdmin)
+    setSelectedId(returningToAdmin ? null : savedId)
     setCategory("Todos")
     setQuery("")
     setCollection("mine")
     setSort("recent")
     setNotice(
-      id
-        ? "Alterações publicadas no site!"
-        : "Receita publicada! Ela já aparece para todos.",
+      returningToAdmin
+        ? "Receita, macros e avaliações atualizados!"
+        : id
+          ? "Alterações publicadas no site!"
+          : "Receita publicada! Ela já aparece para todos.",
     )
+    finishRecipePage()
   }
   const toggleFavorite = async (recipe: Recipe) => {
     try {
@@ -294,9 +304,13 @@ export default function App() {
     setNotice("")
     window.scrollTo({ top: 0 })
   }
-  const editRecipe = (id: string) => {
-    setEditingId(id)
-    setShowSubmit(true)
+  const editRecipe = (id: string, admin = false) => {
+    setSelectedId(null)
+    setShowProfile(false)
+    setMobileMenu(false)
+    setShowAdmin(admin)
+    setNotice("")
+    openEditRecipe(id, admin)
   }
   const confirmDelete = (id: string) => {
     setSelectedId(null)
@@ -356,11 +370,48 @@ export default function App() {
     )
   }
 
-  if (isNewRecipePage) {
+  if (isRecipePage) {
+    const backLabel = fromAdmin
+      ? "Voltar à administração"
+      : "Voltar às receitas"
+    if (
+      editingRecipeId &&
+      (!editing ||
+        (editing.authorId !== snapshot.profile.id &&
+          !snapshot.admin.authenticated))
+    ) {
+      return (
+        <main className="grid min-h-svh place-items-center bg-page px-6 py-12 text-foreground">
+          <section className="w-full max-w-md rounded-[28px] border border-outline bg-surface p-8 text-center">
+            <h1 className="font-display text-2xl font-black">
+              Receita não disponível para edição
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              Verifique se a receita ainda existe e se você está usando a conta
+              que a publicou ou uma conta de administrador.
+            </p>
+            <button
+              onClick={closeRecipePage}
+              className="mt-6 rounded-full bg-[#ef4f78] px-6 py-3 text-sm font-extrabold text-white"
+            >
+              {backLabel}
+            </button>
+          </section>
+        </main>
+      )
+    }
+    const adminMode =
+      !!editing &&
+      snapshot.admin.authenticated &&
+      (fromAdmin || editing.authorId !== snapshot.profile.id)
     return (
       <RecipeForm
+        key={editing?.id || "new"}
         page
-        author={snapshot.profile.name}
+        recipe={editing}
+        adminMode={adminMode}
+        author={adminMode ? editing.author : snapshot.profile.name}
+        backLabel={backLabel}
         onSave={saveRecipe}
         onClose={closeRecipePage}
       />
@@ -371,6 +422,9 @@ export default function App() {
     return (
       <AdminPanel
         snapshot={snapshot}
+        notice={notice}
+        onNotice={setNotice}
+        onEdit={(id) => editRecipe(id, true)}
         onClose={() => {
           setShowAdmin(false)
           window.scrollTo({ top: 0 })
@@ -585,9 +639,7 @@ export default function App() {
             />
           </div>
           <div className="float-card absolute -left-1 top-8 rounded-2xl bg-surface p-3 shadow-xl sm:-left-3 sm:top-16 sm:rounded-3xl sm:p-4">
-            <span className="text-xs font-bold text-muted">
-              Muita proteína
-            </span>
+            <span className="text-xs font-bold text-muted">Muita proteína</span>
             <strong className="mt-1 block font-display text-2xl text-[#ef4f78] sm:text-3xl">
               32g
             </strong>
@@ -704,10 +756,7 @@ export default function App() {
             </div>
           )}
           {loading ? (
-            <p
-              role="status"
-              className="py-12 text-center font-bold text-muted"
-            >
+            <p role="status" className="py-12 text-center font-bold text-muted">
               Carregando suas receitas…
             </p>
           ) : visibleRecipes.length ? (
@@ -756,10 +805,7 @@ export default function App() {
               {collection === "mine" && (
                 <button
                   disabled={!snapshot}
-                  onClick={() => {
-                    setEditingId(null)
-                    setShowSubmit(true)
-                  }}
+                  onClick={openSubmit}
                   className="ml-2 mt-4 rounded-full bg-[#ef4f78] px-5 py-3 text-sm font-extrabold text-white"
                 >
                   Criar minha receita
@@ -791,7 +837,7 @@ export default function App() {
             </p>
             <button
               disabled={!snapshot}
-              onClick={() => setShowSubmit(true)}
+              onClick={openSubmit}
               className="mt-8 flex items-center gap-3 rounded-full bg-[#342820] px-7 py-4 font-extrabold text-white shadow-[0_7px_0_#71912f] transition hover:-translate-y-1"
             >
               <Icon name="plus" /> Salvar minha receita
@@ -848,7 +894,7 @@ export default function App() {
         </div>
       </footer>
 
-      {selected && !showSubmit && !deleting && (
+      {selected && !deleting && (
         <RecipeDetails
           key={selected.id}
           recipe={selected}
@@ -865,18 +911,6 @@ export default function App() {
               ? () => confirmDelete(selected.id)
               : undefined
           }
-        />
-      )}
-      {showSubmit && snapshot && (
-        <RecipeForm
-          key={editing?.id || "new"}
-          recipe={editing}
-          author={snapshot.profile.name}
-          onSave={saveRecipe}
-          onClose={() => {
-            setShowSubmit(false)
-            setEditingId(null)
-          }}
         />
       )}
       {deleting && (
@@ -927,7 +961,9 @@ function Stat({
 }) {
   return (
     <div
-      className={`${color} ${color === "bg-page" ? "text-foreground" : "text-[#342820]"} rounded-[30px] p-7 shadow-[0_10px_0_rgba(80,100,40,0.18)]`}
+      className={`${color} ${
+        color === "bg-page" ? "text-foreground" : "text-[#342820]"
+      } rounded-[30px] p-7 shadow-[0_10px_0_rgba(80,100,40,0.18)]`}
     >
       <strong className="font-display text-5xl font-black tracking-tight">
         {value}
