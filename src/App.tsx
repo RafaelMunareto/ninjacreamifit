@@ -296,6 +296,59 @@ export default function App() {
     setDeletingId(id)
   }
 
+  if (!isLoaded || !snapshot) {
+    return (
+      <main className="grid min-h-svh place-items-center bg-[#fffaf3] px-6 py-12 text-[#342820]">
+        <div className="w-full max-w-sm text-center">
+          <div className="mb-9 flex items-center justify-center gap-2">
+            <span className="logo-scoop" aria-hidden="true" />
+            <span className="font-display text-2xl font-black tracking-[-0.05em]">
+              Ninja CREAMi <span className="text-[#ef4f78]">Fit</span>
+            </span>
+          </div>
+          <section
+            role={databaseError && !loading ? "alert" : "status"}
+            aria-live="polite"
+            aria-atomic="true"
+            className="rounded-[28px] border border-[#eadfd5] bg-white p-8 shadow-[0_8px_30px_rgba(70,43,28,0.06)]"
+          >
+            {databaseError && !loading ? (
+              <>
+                <h1 className="font-display text-xl font-black">
+                  Não foi possível carregar
+                </h1>
+                <p className="mt-3 text-sm leading-relaxed text-[#715f54]">
+                  {databaseError}
+                </p>
+                <button
+                  onClick={() => setReloadKey((value) => value + 1)}
+                  className="mt-6 rounded-full bg-[#ef4f78] px-6 py-3 text-sm font-extrabold text-white"
+                >
+                  Tentar novamente
+                </button>
+              </>
+            ) : (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="mx-auto mb-5 block size-10 animate-spin rounded-full border-4 border-[#ffe3eb] border-t-[#ef4f78] motion-reduce:animate-none"
+                />
+                <h1 className="font-display text-xl font-black">
+                  Preparando suas receitas
+                </h1>
+                <p className="mt-3 text-sm leading-relaxed text-[#715f54]">
+                  {isLoaded
+                    ? "Carregando receitas e seu perfil…"
+                    : "Preparando seu acesso…"}
+                </p>
+              </>
+            )}
+          </section>
+        </div>
+      </main>
+    )
+  }
+
   if (showAdmin && snapshot) {
     return (
       <AdminPanel
