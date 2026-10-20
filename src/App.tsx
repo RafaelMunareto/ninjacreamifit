@@ -10,6 +10,7 @@ import RecipeForm from "./components/RecipeForm"
 import ProfileModal from "./components/ProfileModal"
 import AdminPanel from "./components/AdminPanel"
 import DeleteRecipeDialog from "./components/DeleteRecipeDialog"
+import useNewRecipePage from "./lib/useNewRecipePage"
 
 const EMPTY_RECIPES: Recipe[] = []
 
@@ -147,6 +148,8 @@ function RecipeCard({
 
 export default function App() {
   const { getToken, isLoaded, userId } = useAuth()
+  const { isNewRecipePage, openNewRecipe, closeRecipePage, finishRecipePage } =
+    useNewRecipePage()
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [databaseError, setDatabaseError] = useState("")
@@ -249,7 +252,10 @@ export default function App() {
       setNotice("Aguarde o carregamento das receitas e tente novamente.")
       return
     }
-    setShowSubmit(true)
+    setEditingId(null)
+    setSelectedId(null)
+    setShowProfile(false)
+    openNewRecipe()
   }
   const openProfile = () => {
     if (!snapshot) {
@@ -260,6 +266,7 @@ export default function App() {
   }
   const saveRecipe = async (input: RecipeInput, id?: string) => {
     const savedId = await api.saveRecipe(input, id)
+    if (isNewRecipePage) finishRecipePage()
     setShowSubmit(false)
     setEditingId(null)
     setSelectedId(savedId)
@@ -346,6 +353,17 @@ export default function App() {
           </section>
         </div>
       </main>
+    )
+  }
+
+  if (isNewRecipePage) {
+    return (
+      <RecipeForm
+        page
+        author={snapshot.profile.name}
+        onSave={saveRecipe}
+        onClose={closeRecipePage}
+      />
     )
   }
 

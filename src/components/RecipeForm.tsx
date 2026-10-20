@@ -1,4 +1,10 @@
-import { useRef, useState, type FormEvent, type ChangeEvent } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ChangeEvent,
+} from "react"
 import type {
   AdminDetails,
   Category,
@@ -21,6 +27,7 @@ export default function RecipeForm({
   onClose,
   onSave,
   adminMode = false,
+  page = false,
 }: {
   recipe?: Recipe
   author: string
@@ -31,7 +38,19 @@ export default function RecipeForm({
     details?: AdminDetails,
   ) => Promise<void>
   adminMode?: boolean
+  page?: boolean
 }) {
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    if (!page) return
+    const previousTitle = document.title
+    document.title = "Nova receita · Ninja CREAMi Fit"
+    window.scrollTo({ top: 0 })
+    titleRef.current?.focus({ preventScroll: true })
+    return () => {
+      document.title = previousTitle
+    }
+  }, [page])
   const [hasToppings, setHasToppings] = useState(Boolean(recipe?.toppings))
   const [photo, setPhoto] = useState(recipe?.image || "")
   const [photoError, setPhotoError] = useState("")
@@ -164,28 +183,30 @@ export default function RecipeForm({
     }
   }
 
-  return (
-    <Modal
-      titleId="recipe-form-title"
-      onClose={() => {
-        if (!busy) onClose()
-      }}
+  const Heading = page ? "h1" : "h2"
+  const content = (
+    <div
+      className={
+        page
+          ? "mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"
+          : "p-6 sm:p-9"
+      }
     >
-      <div className="p-6 sm:p-9">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ef4f78]">
-              {adminMode
-                ? "administração do catálogo"
-                : "compartilhe seu sabor"}
-            </p>
-            <h2
-              id="recipe-form-title"
-              className="mt-2 font-display text-3xl font-black"
-            >
-              {recipe ? "Editar receita" : "Nova receita"}
-            </h2>
-          </div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ef4f78]">
+            {adminMode ? "administração do catálogo" : "compartilhe seu sabor"}
+          </p>
+          <Heading
+            ref={titleRef}
+            tabIndex={page ? -1 : undefined}
+            id="recipe-form-title"
+            className="mt-2 font-display text-3xl font-black outline-none sm:text-4xl"
+          >
+            {recipe ? "Editar receita" : "Nova receita"}
+          </Heading>
+        </div>
+        {!page && (
           <button
             onClick={onClose}
             disabled={busy}
@@ -194,155 +215,192 @@ export default function RecipeForm({
           >
             <Icon name="close" />
           </button>
-        </div>
-        <p className="mt-3 text-sm text-[#78665b]">
-          {adminMode
-            ? "Altere os dados da receita e salve para atualizar o catálogo para todos."
-            : recipe
-              ? "Atualize sua receita. As avaliações serão preservadas."
-              : "Escolha seu nome e envie a receita. Depois, você poderá editar ou excluir em Minhas receitas."}
-        </p>
-        <form onSubmit={submit} className="mt-7 space-y-5" aria-busy={busy}>
-          <fieldset disabled={busy} className="min-w-0 space-y-5 border-0 p-0">
-            {!adminMode && (
+        )}
+      </div>
+      <p className="mt-3 text-sm text-[#78665b]">
+        {adminMode
+          ? "Altere os dados da receita e salve para atualizar o catálogo para todos."
+          : recipe
+            ? "Atualize sua receita. As avaliações serão preservadas."
+            : "Escolha seu nome e envie a receita. Depois, você poderá editar ou excluir em Minhas receitas."}
+      </p>
+      <form onSubmit={submit} className="mt-7 space-y-5" aria-busy={busy}>
+        <fieldset disabled={busy} className="min-w-0 space-y-6 border-0 p-0">
+          <section
+            className={
+              page
+                ? "rounded-[28px] border border-[#eadfd5] bg-white p-4 sm:p-7"
+                : "space-y-5"
+            }
+          >
+            {page && (
+              <h2 className="mb-6 font-display text-xl font-black">
+                Sobre a receita
+              </h2>
+            )}
+            <div
+              className={
+                page
+                  ? "grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]"
+                  : "space-y-5"
+              }
+            >
               <div>
-                <Field
-                  label="Seu nome"
-                  name="author_name"
-                  placeholder="Como você quer aparecer nas receitas?"
-                  defaultValue={author === "Você" ? "" : author}
-                  maxLength={60}
-                />
-                <p className="mt-2 text-xs text-[#8a776b]">
-                  Vamos lembrar seu nome neste navegador para as próximas
-                  receitas.
-                </p>
-              </div>
-            )}
-            <div>
-              <span className="mb-2 block text-sm font-extrabold">
-                Foto da receita
-              </span>
-              <label
-                className={`relative flex min-h-48 cursor-pointer items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed bg-white focus-within:border-[#ef4f78] ${
-                  photoError
-                    ? "border-[#ef4f78]"
-                    : "border-[#dccdc1] hover:border-[#ef4f78]"
-                }`}
-              >
-                {photo ? (
-                  <>
-                    <img
-                      src={photo}
-                      alt="Pré-visualização da receita"
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                    <span className="relative rounded-full bg-[#342820]/85 px-5 py-2.5 text-sm font-extrabold text-white">
-                      {processingPhoto ? "Preparando foto…" : "Trocar foto"}
-                    </span>
-                  </>
-                ) : (
-                  <span className="flex flex-col items-center px-6 py-8 text-center">
-                    <span className="grid size-12 place-items-center rounded-full bg-[#fff0f4] text-[#ef4f78]">
-                      <Icon name="plus" size={24} />
-                    </span>
-                    <strong className="mt-3 text-sm">
-                      {processingPhoto
-                        ? "Preparando foto…"
-                        : "Adicione uma foto do resultado"}
-                    </strong>
-                    <span className="mt-1 text-xs font-semibold text-[#927d71]">
-                      JPG, PNG ou WEBP · máximo 10 MB
-                    </span>
-                  </span>
-                )}
-                <input
-                  name="photo"
-                  aria-label="Foto da receita"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  required={!photo}
-                  onChange={handlePhoto}
-                  className="sr-only"
-                />
-              </label>
-              {photoError && (
-                <p
-                  role="alert"
-                  className="mt-2 text-xs font-bold text-[#d63f68]"
-                >
-                  {photoError}
-                </p>
-              )}
-            </div>
-            <Field
-              label="Nome da receita"
-              name="recipe_name"
-              placeholder="Ex: Bombom de coco proteico"
-              defaultValue={recipe?.title}
-              maxLength={100}
-            />
-            {adminMode && (
-              <Field
-                label="Autor da receita"
-                name="author"
-                placeholder="Nome do autor"
-                defaultValue={recipe?.author || author}
-                maxLength={60}
-              />
-            )}
-            <div className="grid gap-5 sm:grid-cols-2">
-              <SelectField
-                label="Categoria"
-                name="category"
-                defaultValue={recipe?.category}
-                options={categories
-                  .slice(1)
-                  .map((category) => [category, category])}
-              />
-              <SelectField
-                label="Programa da Ninja CREAMi"
-                name="program"
-                defaultValue={recipe?.program}
-                options={Object.entries(programs)}
-              />
-              <SelectField
-                label="Precisa de re-spin?"
-                name="respin"
-                defaultValue={recipe?.respin ? "sim" : "nao"}
-                options={[
-                  ["nao", "Não"],
-                  ["sim", "Sim"],
-                ]}
-              />
-              <label className="block">
                 <span className="mb-2 block text-sm font-extrabold">
-                  Tem toppings?
+                  Foto da receita
                 </span>
-                <select
-                  name="has_toppings"
-                  value={hasToppings ? "sim" : "nao"}
-                  onChange={(event) =>
-                    setHasToppings(event.target.value === "sim")
-                  }
-                  className="form-input"
+                <label
+                  className={`relative flex min-h-48 cursor-pointer items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed bg-white focus-within:border-[#ef4f78] ${
+                    photoError
+                      ? "border-[#ef4f78]"
+                      : "border-[#dccdc1] hover:border-[#ef4f78]"
+                  }`}
                 >
-                  <option value="nao">Não</option>
-                  <option value="sim">Sim</option>
-                </select>
-              </label>
+                  {photo ? (
+                    <>
+                      <img
+                        src={photo}
+                        alt="Pré-visualização da receita"
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                      <span className="relative rounded-full bg-[#342820]/85 px-5 py-2.5 text-sm font-extrabold text-white">
+                        {processingPhoto ? "Preparando foto…" : "Trocar foto"}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="flex flex-col items-center px-6 py-8 text-center">
+                      <span className="grid size-12 place-items-center rounded-full bg-[#fff0f4] text-[#ef4f78]">
+                        <Icon name="plus" size={24} />
+                      </span>
+                      <strong className="mt-3 text-sm">
+                        {processingPhoto
+                          ? "Preparando foto…"
+                          : "Adicione uma foto do resultado"}
+                      </strong>
+                      <span className="mt-1 text-xs font-semibold text-[#927d71]">
+                        JPG, PNG ou WEBP · máximo 10 MB
+                      </span>
+                    </span>
+                  )}
+                  <input
+                    name="photo"
+                    aria-label="Foto da receita"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    required={!photo}
+                    onChange={handlePhoto}
+                    className="sr-only"
+                  />
+                </label>
+                {photoError && (
+                  <p
+                    role="alert"
+                    className="mt-2 text-xs font-bold text-[#d63f68]"
+                  >
+                    {photoError}
+                  </p>
+                )}
+              </div>
+              <div className="min-w-0 space-y-5">
+                {!adminMode && (
+                  <div>
+                    <Field
+                      label="Seu nome"
+                      name="author_name"
+                      placeholder="Como você quer aparecer nas receitas?"
+                      defaultValue={author === "Você" ? "" : author}
+                      maxLength={60}
+                    />
+                    <p className="mt-2 text-xs text-[#8a776b]">
+                      Vamos lembrar seu nome neste navegador para as próximas
+                      receitas.
+                    </p>
+                  </div>
+                )}
+                <Field
+                  label="Nome da receita"
+                  name="recipe_name"
+                  placeholder="Ex: Bombom de coco proteico"
+                  defaultValue={recipe?.title}
+                  maxLength={100}
+                />
+                {adminMode && (
+                  <Field
+                    label="Autor da receita"
+                    name="author"
+                    placeholder="Nome do autor"
+                    defaultValue={recipe?.author || author}
+                    maxLength={60}
+                  />
+                )}
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <SelectField
+                    label="Categoria"
+                    name="category"
+                    defaultValue={recipe?.category}
+                    options={categories
+                      .slice(1)
+                      .map((category) => [category, category])}
+                  />
+                  <SelectField
+                    label="Programa da Ninja CREAMi"
+                    name="program"
+                    defaultValue={recipe?.program}
+                    options={Object.entries(programs)}
+                  />
+                  <SelectField
+                    label="Precisa de re-spin?"
+                    name="respin"
+                    defaultValue={recipe?.respin ? "sim" : "nao"}
+                    options={[
+                      ["nao", "Não"],
+                      ["sim", "Sim"],
+                    ]}
+                  />
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-extrabold">
+                      Tem toppings?
+                    </span>
+                    <select
+                      name="has_toppings"
+                      value={hasToppings ? "sim" : "nao"}
+                      onChange={(event) =>
+                        setHasToppings(event.target.value === "sim")
+                      }
+                      className="form-input"
+                    >
+                      <option value="nao">Não</option>
+                      <option value="sim">Sim</option>
+                    </select>
+                  </label>
+                </div>
+                {hasToppings && (
+                  <Field
+                    label="Quais toppings?"
+                    name="toppings"
+                    placeholder="Ex: morangos, granola e nibs de cacau"
+                    defaultValue={recipe?.toppings}
+                    maxLength={500}
+                  />
+                )}
+              </div>
             </div>
-            {hasToppings && (
-              <Field
-                label="Quais toppings?"
-                name="toppings"
-                placeholder="Ex: morangos, granola e nibs de cacau"
-                defaultValue={recipe?.toppings}
-                maxLength={500}
-              />
+          </section>
+          <section
+            className={
+              page
+                ? "min-w-0 space-y-5 rounded-[28px] border border-[#eadfd5] bg-white p-4 sm:p-7"
+                : "space-y-5"
+            }
+          >
+            {page && (
+              <h2 className="font-display text-xl font-black">
+                Alimentos e ingredientes
+              </h2>
             )}
             {showCalculator ? (
               <FoodCalculator
+                embedded={page}
                 initialItems={foodItems}
                 initialLabels={automaticIngredients}
                 onRestore={setAutomaticIngredients}
@@ -384,134 +442,196 @@ export default function RecipeForm({
                 </span>
               )}
             </label>
-            <label className="block">
-              <span className="mb-2 block text-sm font-extrabold">
-                Modo de preparo · uma etapa por linha
-              </span>
-              <textarea
-                name="instructions"
-                required
-                rows={4}
-                maxLength={15000}
-                defaultValue={recipe?.instructions.join("\n")}
-                placeholder={
-                  "Misture os ingredientes.\nCongele por 24 horas.\nProcesse no programa escolhido."
-                }
-                className="form-input resize-y"
-              />
-            </label>
-            <div>
-              <p className="text-sm font-extrabold">
-                Macros e calorias por pote · obrigatório
-              </p>
-              <p className="mb-3 mt-1 text-xs text-[#8a776b]">
-                {foodItems.length
-                  ? "Totais dos alimentos selecionados. Você pode corrigir os valores, se necessário."
-                  : "Preencha os quatro campos ou escolha alimentos acima para calcular. Informe 0 quando o nutriente não estiver presente."}
-              </p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <Field
-                  label="Proteína (g)"
-                  name="protein_g"
-                  type="number"
-                  placeholder="0"
-                  value={macros.protein}
-                  onValueChange={(value) =>
-                    setMacros((previous) => ({ ...previous, protein: value }))
+          </section>
+          <div
+            className={
+              page ? "grid items-start gap-6 lg:grid-cols-2" : "space-y-5"
+            }
+          >
+            <section
+              className={
+                page
+                  ? "rounded-[28px] border border-[#eadfd5] bg-white p-4 sm:p-7"
+                  : ""
+              }
+            >
+              <label className="block">
+                <span className="mb-2 block text-sm font-extrabold">
+                  Modo de preparo · uma etapa por linha
+                </span>
+                <textarea
+                  name="instructions"
+                  required
+                  rows={4}
+                  maxLength={15000}
+                  defaultValue={recipe?.instructions.join("\n")}
+                  placeholder={
+                    "Misture os ingredientes.\nCongele por 24 horas.\nProcesse no programa escolhido."
                   }
+                  className="form-input resize-y"
                 />
-                <Field
-                  label="Carbo (g)"
-                  name="carbs_g"
-                  type="number"
-                  placeholder="0"
-                  value={macros.carbs}
-                  onValueChange={(value) =>
-                    setMacros((previous) => ({ ...previous, carbs: value }))
-                  }
-                />
-                <Field
-                  label="Gordura (g)"
-                  name="fat_g"
-                  type="number"
-                  placeholder="0"
-                  value={macros.fat}
-                  onValueChange={(value) =>
-                    setMacros((previous) => ({ ...previous, fat: value }))
-                  }
-                />
-                <Field
-                  label="Calorias"
-                  name="calories"
-                  type="number"
-                  placeholder="0"
-                  value={macros.calories}
-                  onValueChange={(value) =>
-                    setMacros((previous) => ({ ...previous, calories: value }))
-                  }
-                />
-              </div>
-            </div>
-            {adminMode && (
-              <div className="rounded-3xl border border-[#eadfd5] bg-[#fff6d8] p-5">
-                <h3 className="font-display text-xl font-black">
-                  Estrelas e avaliações
-                </h3>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              </label>
+            </section>
+            <section
+              className={
+                page
+                  ? "rounded-[28px] border border-[#eadfd5] bg-white p-4 sm:p-7"
+                  : ""
+              }
+            >
+              <div>
+                <p className="text-sm font-extrabold">
+                  Macros e calorias por pote · obrigatório
+                </p>
+                <p className="mb-3 mt-1 text-xs text-[#8a776b]">
+                  {foodItems.length
+                    ? "Totais dos alimentos selecionados. Você pode corrigir os valores, se necessário."
+                    : "Preencha os quatro campos ou escolha alimentos acima para calcular. Informe 0 quando o nutriente não estiver presente."}
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <Field
-                    label="Média de estrelas (0 a 5)"
-                    name="rating"
+                    label="Proteína (g)"
+                    name="protein_g"
                     type="number"
                     placeholder="0"
-                    defaultValue={recipe?.rating ?? 0}
-                    min={0}
-                    max={5}
-                    step={0.1}
+                    value={macros.protein}
+                    onValueChange={(value) =>
+                      setMacros((previous) => ({ ...previous, protein: value }))
+                    }
                   />
                   <Field
-                    label="Total de avaliações"
-                    name="votes"
+                    label="Carbo (g)"
+                    name="carbs_g"
                     type="number"
                     placeholder="0"
-                    defaultValue={recipe?.votes ?? 0}
-                    min={0}
-                    max={10000000}
-                    step={1}
+                    value={macros.carbs}
+                    onValueChange={(value) =>
+                      setMacros((previous) => ({ ...previous, carbs: value }))
+                    }
+                  />
+                  <Field
+                    label="Gordura (g)"
+                    name="fat_g"
+                    type="number"
+                    placeholder="0"
+                    value={macros.fat}
+                    onValueChange={(value) =>
+                      setMacros((previous) => ({ ...previous, fat: value }))
+                    }
+                  />
+                  <Field
+                    label="Calorias"
+                    name="calories"
+                    type="number"
+                    placeholder="0"
+                    value={macros.calories}
+                    onValueChange={(value) =>
+                      setMacros((previous) => ({
+                        ...previous,
+                        calories: value,
+                      }))
+                    }
                   />
                 </div>
-                <p className="mt-3 text-xs leading-relaxed text-[#78665b]">
-                  Use média 0 para nenhuma avaliação. Ao alterar estes totais,
-                  as avaliações anteriores serão incorporadas ao consolidado;
-                  uma nova avaliação contará à parte. Se os totais não mudarem,
-                  sua nota será preservada.
-                </p>
               </div>
-            )}
-          </fieldset>
-          {error && (
-            <p
-              role="alert"
-              className="rounded-2xl bg-[#fff0f4] p-4 text-sm font-bold text-[#b92e53]"
-            >
-              {error}
-            </p>
+            </section>
+          </div>
+          {adminMode && (
+            <div className="rounded-3xl border border-[#eadfd5] bg-[#fff6d8] p-5">
+              <h3 className="font-display text-xl font-black">
+                Estrelas e avaliações
+              </h3>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field
+                  label="Média de estrelas (0 a 5)"
+                  name="rating"
+                  type="number"
+                  placeholder="0"
+                  defaultValue={recipe?.rating ?? 0}
+                  min={0}
+                  max={5}
+                  step={0.1}
+                />
+                <Field
+                  label="Total de avaliações"
+                  name="votes"
+                  type="number"
+                  placeholder="0"
+                  defaultValue={recipe?.votes ?? 0}
+                  min={0}
+                  max={10000000}
+                  step={1}
+                />
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-[#78665b]">
+                Use média 0 para nenhuma avaliação. Ao alterar estes totais, as
+                avaliações anteriores serão incorporadas ao consolidado; uma
+                nova avaliação contará à parte. Se os totais não mudarem, sua
+                nota será preservada.
+              </p>
+            </div>
           )}
-          <button
-            type="submit"
-            disabled={busy}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-[#ef4f78] px-7 py-4 font-extrabold text-white shadow-[0_6px_0_#c9355c] transition hover:-translate-y-0.5"
+        </fieldset>
+        {error && (
+          <p
+            role="alert"
+            className="rounded-2xl bg-[#fff0f4] p-4 text-sm font-bold text-[#b92e53]"
           >
-            {saving
-              ? "Salvando receita…"
-              : processingPhoto
-                ? "Preparando foto…"
-                : recipe
-                  ? "Salvar alterações"
-                  : "Salvar minha receita"}
-            <Icon name="arrow" />
-          </button>
-        </form>
-      </div>
+            {error}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={busy}
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#ef4f78] px-7 py-4 font-extrabold text-white shadow-[0_6px_0_#c9355c] transition hover:-translate-y-0.5"
+        >
+          {saving
+            ? "Salvando receita…"
+            : processingPhoto
+              ? "Preparando foto…"
+              : recipe
+                ? "Salvar alterações"
+                : "Salvar minha receita"}
+          <Icon name="arrow" />
+        </button>
+      </form>
+    </div>
+  )
+
+  if (page) {
+    return (
+      <main className="min-h-svh bg-[#fffaf3] text-[#342820]">
+        <header className="sticky top-0 z-30 border-b border-[#eadfd5] bg-[#fffaf3]/95 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4 lg:px-8">
+            <span className="font-display text-lg font-black tracking-tight sm:text-xl">
+              Ninja CREAMi <span className="text-[#ef4f78]">Fit</span>
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="flex items-center gap-2 rounded-full border border-[#e7d9ce] bg-white px-3 py-2.5 text-xs font-extrabold sm:px-4 sm:text-sm"
+            >
+              <span className="rotate-180">
+                <Icon name="arrow" size={16} />
+              </span>
+              Voltar às receitas
+            </button>
+          </div>
+        </header>
+        {content}
+      </main>
+    )
+  }
+
+  return (
+    <Modal
+      titleId="recipe-form-title"
+      onClose={() => {
+        if (!busy) onClose()
+      }}
+    >
+      {content}
     </Modal>
   )
 }

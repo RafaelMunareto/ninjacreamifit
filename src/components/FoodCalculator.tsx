@@ -43,6 +43,7 @@ type AiSuggestion = {
 }
 type Catalog = Awaited<ReturnType<typeof loadFoodCatalog>>
 type Props = {
+  embedded?: boolean
   initialItems: FoodReference[]
   initialLabels: string[]
   onRestore: (lines: string[]) => void
@@ -58,6 +59,7 @@ const display = (value: number | null) =>
   value === null ? "não informado" : value.toLocaleString("pt-BR")
 
 export default function FoodCalculator({
+  embedded = false,
   initialItems,
   initialLabels,
   onRestore,
@@ -548,13 +550,17 @@ export default function FoodCalculator({
   return (
     <section
       aria-label="Calculadora de alimentos"
-      className="rounded-3xl border border-[#eadfd5] bg-white p-4 sm:p-5"
+      className={
+        embedded ? "min-w-0" : "rounded-3xl border border-[#eadfd5] bg-white p-4 sm:p-5"
+      }
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-display text-xl font-black">
-          Alimentos e peso do pote
-        </h3>
-      </div>
+      {!embedded && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-display text-xl font-black">
+            Alimentos e peso do pote
+          </h3>
+        </div>
+      )}
       {!catalog && !error && (
         <p role="status" className="mt-4 text-sm text-[#78665b]">
           Carregando a tabela de alimentos…
