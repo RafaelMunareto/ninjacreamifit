@@ -23,6 +23,7 @@ import {
   searchFoods,
   searchFoodsWithFallback,
   searchFoodPage,
+  normalizeFoodBarcode,
   invalidateFoodCatalog,
 } from "../lib/nutrition.js"
 import { requestApi } from "../lib/http.js"
@@ -115,6 +116,7 @@ export default function FoodCalculator({
   const queryVersion = useRef(0)
   const resultsScrollRef = useRef<HTMLDivElement | null>(null)
   const resultsEndRef = useRef<HTMLDivElement | null>(null)
+  const manualFormRef = useRef<HTMLDivElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -127,6 +129,15 @@ export default function FoodCalculator({
   const [error, setError] = useState("")
   const [restoreError, setRestoreError] = useState("")
   const [retry, setRetry] = useState(0)
+
+  const openManualFood = useCallback((barcode = "") => {
+    if (barcode) setManualFood((current) => ({ ...current, barcode }))
+    setManualOpen(true)
+  }, [])
+
+  useEffect(() => {
+    if (manualOpen) manualFormRef.current?.scrollIntoView({ block: "start" })
+  }, [manualOpen])
 
   useEffect(() => {
     let cancelled = false
@@ -184,10 +195,11 @@ export default function FoodCalculator({
     let active = true
     setSearchError("")
     const valid = deferredQuery.trim().length >= 2
+    const barcode = normalizeFoodBarcode(deferredQuery)
     // Foods already in the catalog must be selectable while providers load.
     // A slow or unavailable external source cannot hide TBCA/IBGE matches.
     const local =
-      valid && !/^\d{8,14}$/.test(deferredQuery.trim())
+      valid && !barcode
         ? searchFoods(catalog, deferredQuery, Number.MAX_SAFE_INTEGER)
         : { foods: [], total: 0 }
     setResults({ ...local, source: "Todas", fallback: false, nextCursor: null })
@@ -198,13 +210,7 @@ export default function FoodCalculator({
           .then((data) => {
             if (!active) return
             setResults(data)
-            if (/^\d{8,14}$/.test(deferredQuery.trim()) && !data.foods.length) {
-              setManualFood((current) => ({
-                ...current,
-                barcode: deferredQuery.trim(),
-              }))
-              setManualOpen(true)
-            }
+            if (barcode && !data.foods.length) openManualFood(barcode)
           })
           .catch(() => {
             if (active)
@@ -224,7 +230,7 @@ export default function FoodCalculator({
       controller.abort()
       moreRequest.current?.abort()
     }
-  }, [catalog, deferredQuery])
+  }, [catalog, deferredQuery, openManualFood])
 
   const loadMore = useCallback(async () => {
     if (
@@ -348,7 +354,8 @@ export default function FoodCalculator({
       protein: values[2],
       carbs: values[3],
       fat: values[4],
-      barcode: manualFood.barcode.trim(),
+      barcode:
+        normalizeFoodBarcode(manualFood.barcode) || manualFood.barcode.trim(),
       basisUnit: manualFood.unit,
     }
     foodSaveLock.current = true
@@ -1065,7 +1072,10 @@ export default function FoodCalculator({
           <div className="mt-3 rounded-2xl border border-outline bg-page p-3">
             <button
               type="button"
-              onClick={() => setManualOpen((value) => !value)}
+              onClick={() => {
+                if (manualOpen) setManualOpen(false)
+                else openManualFood(normalizeFoodBarcode(query))
+              }}
               className="text-sm font-extrabold text-[#52642f]"
               aria-expanded={manualOpen}
             >
@@ -1074,11 +1084,16 @@ export default function FoodCalculator({
                 : "+ Não encontrou? Incluir alimento manualmente"}
             </button>
             {manualOpen && (
-              <div className="mt-3 space-y-3">
+              <div
+                ref={manualFormRef}
+                role="group"
+                aria-label="Cadastro manual de alimento"
+                className="mt-3 scroll-mt-24 space-y-3"
+              >
                 {manualFood.barcode && (
                   <p className="text-sm font-semibold">
-                    Código não encontrado? Salve os dados do rótulo para as
-                    próximas buscas.
+                    Cadastre os dados do rótulo com este código de barras para
+                    encontrar o alimento nas próximas buscas.
                   </p>
                 )}
                 <label className="block">

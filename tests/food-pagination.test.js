@@ -12,6 +12,37 @@ const food = (id, calories) => ({
   fat: 1,
 })
 
+test("código colado com separadores usa a consulta por barras e preserva zeros iniciais", async () => {
+  const original = globalThis.fetch
+  try {
+    for (const [query, barcode] of [
+      ["0 12345 67890-5", "012345678905"],
+      ["7 891234 567895", "7891234567895"],
+      [" 00.123.456 ", "00123456"],
+    ]) {
+      globalThis.fetch = async (url) => {
+        const params = new URL(String(url), "https://example.test").searchParams
+        assert.equal(params.get("barcode"), barcode)
+        assert.equal(params.has("q"), false)
+        assert.equal(params.has("cursor"), false)
+        return Response.json({ foods: [food("FATSECRET:1", 60)], total: 1 })
+      }
+      const result = await searchFoodPage(createFoodCatalog([]), query)
+      assert.equal(result.foods[0].id, "FATSECRET:1")
+      assert.equal(result.nextCursor, null)
+    }
+    globalThis.fetch = async (url) => {
+      const params = new URL(String(url), "https://example.test").searchParams
+      assert.equal(params.get("q"), "Whey 100-000000")
+      assert.equal(params.has("barcode"), false)
+      return Response.json({ foods: [], total: 0, nextCursor: null })
+    }
+    await searchFoodPage(createFoodCatalog([]), "Whey 100-000000")
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
 test("mais páginas preservam fontes, retiram duplicatas e reordenam calorias sem perder o cursor", async () => {
   const original = globalThis.fetch
   try {

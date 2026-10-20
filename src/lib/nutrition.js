@@ -203,6 +203,12 @@ export const foodDescriptions = (items) =>
 
 /** @typedef {{foods: LocalFood[], total: number, source: string, fallback: boolean, nextCursor?: string | null, sourceDiagnostics?: Record<string, string>, providerTotals?: Record<string, number | null>}} FoodResults */
 
+/** @param {string} value */
+export function normalizeFoodBarcode(value) {
+  const digits = value.replace(/[\s.-]/g, "")
+  return /^\d{8,14}$/.test(digits) ? digits : ""
+}
+
 /** @param {FoodCatalog} catalog @param {string} query @param {string} [cursor] @param {AbortSignal} [signal] @param {LocalFood[]} [previous] @returns {Promise<FoodResults>} */
 export async function searchFoodPage(
   catalog,
@@ -219,11 +225,11 @@ export async function searchFoodPage(
       fallback: false,
       nextCursor: null,
     }
-  const barcode = /^\d{8,14}$/.test(query.trim())
+  const barcode = normalizeFoodBarcode(query)
   let api
   try {
     api = barcode
-      ? await searchFoodApi(query, 20, signal)
+      ? await searchFoodApi(barcode, 20, signal)
       : await requestApi(`foods?${new URLSearchParams({ q: query, cursor })}`, {
           signal,
           cache: "no-store",
@@ -260,9 +266,9 @@ export async function searchFoodPage(
 }
 /** @param {string} query @param {number} limit @param {AbortSignal} [signal] */
 export async function searchFoodApi(query, limit, signal) {
-  const barcode = /^\d{8,14}$/.test(query.trim())
+  const barcode = normalizeFoodBarcode(query)
   const params = new URLSearchParams({
-    [barcode ? "barcode" : "q"]: query,
+    [barcode ? "barcode" : "q"]: barcode || query,
     limit: String(limit),
   })
   const data = await requestApi(`foods?${params}`, {

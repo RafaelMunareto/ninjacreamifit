@@ -48,4 +48,6 @@ A lista exibe todos os alimentos já carregados e busca as próximas páginas au
 
 Alimentos manuais são salvos no PostgreSQL compartilhado pelo Repassa Fácil, mesmo sem publicar uma receita. Um código de barras não encontrado abre o cadastro com o código preenchido. O salvamento é idempotente; cadastros concorrentes do mesmo código reutilizam o alimento existente. Os valores são informados por 100 g/ml. Falhas preservam o formulário. As próximas buscas consultam também os alimentos da comunidade.
 
+Códigos digitados, colados ou lidos pela câmera usam o mesmo fluxo. Espaços, pontos e hífens são removidos sem perder zeros iniciais. Ao não encontrar o código, a tela rola até o cadastro manual aberto; abrir o cadastro durante a busca também preenche o código consultado.
+
 O tema padrão acompanha o sistema do aparelho. Em **Meu perfil → Aparência**, é possível escolher **Automático**, **Claro** ou **Escuro**. A preferência é aplicada imediatamente, guardada neste navegador e sincronizada entre suas abas. A paleta é aplicada antes da montagem do React para evitar um fundo claro ao abrir no modo escuro.
