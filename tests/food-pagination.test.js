@@ -80,3 +80,57 @@ test("falha mantém dados e o cursor para tentar novamente; cancelamento não vi
     globalThis.fetch = original
   }
 })
+
+test("produto local e produto de nova página ficam antes de pratos que apenas contêm o ingrediente", async () => {
+  const original = globalThis.fetch
+  const dessert = {
+    ...food("TBCA:pave", 85),
+    name: "Pavê, baunilha, (leite, leite condensado, biscoito)",
+  }
+  const condensed = {
+    ...food("TBCA:condensado", 319),
+    name: "Leite, vaca, condensado, c/ açúcar, enlatado",
+  }
+  const light = {
+    ...food("FATSECRET:light", 250),
+    name: "Leite Condensado Light (Marca)",
+  }
+  try {
+    const catalog = createFoodCatalog([dessert, condensed])
+    globalThis.fetch = async () =>
+      Response.json({ foods: [], nextCursor: "50,-1" })
+    const first = await searchFoodPage(catalog, "leite condensado")
+    assert.deepEqual(
+      first.foods.map((food) => food.id),
+      [condensed.id, dessert.id],
+    )
+    globalThis.fetch = async () =>
+      Response.json({
+        foods: [
+          light,
+          dessert,
+          {
+            ...food("OFF:drink", 50),
+            name: "Coquetel, (leite condensado e frutas)",
+          },
+        ],
+        nextCursor: null,
+      })
+    const second = await searchFoodPage(
+      catalog,
+      "leite condensado",
+      first.nextCursor,
+      undefined,
+      first.foods,
+    )
+    assert.deepEqual(
+      second.foods.map((food) => food.id),
+      [light.id, condensed.id, "OFF:drink", dessert.id],
+    )
+    assert.equal(second.total, 4)
+    assert.equal(second.nextCursor, null)
+    assert.equal(first.foods.length, 2)
+  } finally {
+    globalThis.fetch = original
+  }
+})

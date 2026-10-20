@@ -70,6 +70,68 @@ test("busca local aceita acentos, múltiplas palavras e código TBCA", () => {
   assert.equal(searchFoods(catalog, "a").total, 0)
 })
 
+test("leite condensado aparece antes das preparações, com calorias crescentes entre os produtos", async () => {
+  const data = await Promise.all(
+    ["tbca", "ibge"].map(async (source) =>
+      JSON.parse(
+        await readFile(
+          new URL(`../public/data/${source}-foods-v1.json`, import.meta.url),
+          "utf8",
+        ),
+      ),
+    ),
+  )
+  const catalog = createFoodCatalog(data.flatMap((entry) => entry.foods))
+  for (const query of ["LEITE CONDENSADO", "condensado leite"]) {
+    const result = searchFoods(catalog, query, 2)
+    assert.deepEqual(
+      result.foods.map((food) => food.id),
+      ["C0030G", "IBGE:7900901:99"],
+    )
+    assert.ok(
+      result.total > 20,
+      "a busca continua incluindo preparações relacionadas",
+    )
+    assert.ok(result.foods[0].calories <= result.foods[1].calories)
+  }
+  const result = searchFoods(catalog, "leite condensado", 100)
+  assert.ok(
+    result.foods.findIndex((food) => food.id === "C0084K") > 1,
+    "o pavê de 85 kcal não deve esconder o ingrediente",
+  )
+})
+
+test("resultados selecionáveis não são escondidos por produtos externos com macros ausentes", () => {
+  const condensed = {
+    ...milk,
+    id: "condensado",
+    name: "Leite condensado",
+    calories: 319,
+  }
+  const dessert = {
+    ...milk,
+    id: "pave",
+    name: "Pavê (leite condensado)",
+    calories: 85,
+  }
+  const incomplete = Array.from({ length: 25 }, (_, i) => ({
+    ...condensed,
+    id: `OFF:${i}`,
+    calories: i,
+    protein: null,
+  }))
+  const result = searchFoods(
+    createFoodCatalog([...incomplete, dessert, condensed]),
+    "leite condensado",
+    2,
+  )
+  assert.deepEqual(
+    result.foods.map((food) => food.id),
+    [condensed.id, dessert.id],
+  )
+  assert.equal(result.total, 27)
+})
+
 test("importação distingue kcal de kJ, vírgula decimal, traços e NA", () => {
   assert.deepEqual(parseNutrient("8,91"), { value: 8.91, trace: false })
   assert.deepEqual(parseNutrient("0,00"), { value: 0, trace: false })

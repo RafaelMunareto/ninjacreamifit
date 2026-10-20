@@ -82,6 +82,35 @@ function compareFoodCalories(a, b) {
   return first < second ? -1 : first > second ? 1 : 0
 }
 
+/** @param {LocalFood[]} foods @param {string} query */
+function orderFoodResults(foods, query) {
+  const words = normalize(query).split(/\s+/).filter(Boolean)
+  return foods
+    .map((food) => {
+      const name = normalize(food.name)
+      // Product names come before dishes that only mention the ingredient.
+      // Token matching also recognizes "Leite, vaca, condensado" and queries
+      // with reordered words, without changing which foods match the search.
+      const mainName = normalize(food.name.split(/\(|\bc\s*\//i)[0])
+      const relevance = words.includes(name.split(" ")[0])
+        ? 0
+        : words.every((word) => mainName.includes(word))
+          ? 1
+          : 2
+      return { food, relevance }
+    })
+    .sort(
+      (a, b) =>
+        Number(!hasCompleteNutrition(a.food)) -
+          Number(!hasCompleteNutrition(b.food)) ||
+        a.relevance - b.relevance ||
+        compareFoodCalories(a.food, b.food) ||
+        a.food.name.localeCompare(b.food.name, "pt-BR") ||
+        a.food.id.localeCompare(b.food.id),
+    )
+    .map(({ food }) => food)
+}
+
 /** @param {string} name @param {string} identifier @param {string[]} words */
 function matchesTerms(name, identifier, words) {
   return (
@@ -111,20 +140,11 @@ export function searchFoods(catalog, query, limit = 20, source = "all") {
       (source === "all" || (entry.food.source || "TBCA") === source) &&
       matchesTerms(entry.name, entry.identifier, words),
   )
-  matches.sort((a, b) => {
-    const rank = /** @param {typeof a} item */ (item) =>
-      (item.name.startsWith(term) ? 0 : 100) +
-      item.food.name.length / 10 +
-      (hasCompleteNutrition(item.food) ? 0 : 1000)
-    return (
-      compareFoodCalories(a.food, b.food) ||
-      rank(a) - rank(b) ||
-      a.food.name.localeCompare(b.food.name, "pt-BR") ||
-      a.food.id.localeCompare(b.food.id)
-    )
-  })
   return {
-    foods: matches.slice(0, limit).map((entry) => entry.food),
+    foods: orderFoodResults(
+      matches.map((entry) => entry.food),
+      query,
+    ).slice(0, limit),
     total: matches.length,
   }
 }
@@ -221,13 +241,14 @@ export async function searchFoodPage(
   const local = barcode
     ? []
     : searchFoods(catalog, query, Number.MAX_SAFE_INTEGER).foods
-  const foods = [
-    ...new Map(
-      [...previous, ...local, ...api.foods].map((food) => [food.id, food]),
-    ).values(),
-  ]
-    .filter((food) => barcode || matchesFoodQuery(food, query))
-    .sort(compareFoodCalories)
+  const foods = orderFoodResults(
+    [
+      ...new Map(
+        [...previous, ...local, ...api.foods].map((food) => [food.id, food]),
+      ).values(),
+    ].filter((food) => barcode || matchesFoodQuery(food, query)),
+    query,
+  )
   return {
     ...api,
     foods,
@@ -244,18 +265,21 @@ export async function searchFoodApi(query, limit, signal) {
     [barcode ? "barcode" : "q"]: query,
     limit: String(limit),
   })
-  const data = await requestApi(`foods?${params}`, { signal, cache: "no-store" })
+  const data = await requestApi(`foods?${params}`, {
+    signal,
+    cache: "no-store",
+  })
   if (!Array.isArray(data.foods) || !Number.isInteger(data.total))
     throw new Error("Resposta de alimentos inválida.")
-  const foods = barcode
+  const matching = barcode
     ? data.foods
     : data.foods.filter((/** @type {LocalFood} */ food) =>
         matchesFoodQuery(food, query),
       )
   return /** @type {{foods: LocalFood[], total: number}} */ ({
     ...data,
-    foods,
-    total: foods.length === data.foods.length ? data.total : foods.length,
+    foods: orderFoodResults(matching, query),
+    total: matching.length === data.foods.length ? data.total : matching.length,
   })
 }
 
@@ -283,16 +307,17 @@ export async function searchFoodsWithFallback(
     return { foods: [], total: 0, source: "TBCA", fallback: false }
   const local = searchFoods(catalog, query, limit, "TBCA")
   const api = await remote(query, limit).catch(() => ({ foods: [], total: 0 }))
-  const foods = [
-    ...new Map(
-      [...api.foods, ...local.foods].map((food) => [food.id, food]),
-    ).values(),
-  ]
-    .filter(
+  const foods = orderFoodResults(
+    [
+      ...new Map(
+        [...api.foods, ...local.foods].map((food) => [food.id, food]),
+      ).values(),
+    ].filter(
       (food) =>
         /^\d{8,14}$/.test(query.trim()) || matchesFoodQuery(food, query),
-    )
-    .sort(compareFoodCalories)
+    ),
+    query,
+  )
   return {
     foods: foods.slice(0, limit),
     total: foods.length,
