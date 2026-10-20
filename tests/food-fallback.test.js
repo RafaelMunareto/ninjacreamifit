@@ -4,6 +4,8 @@ import { createServer } from "node:http"
 import { once } from "node:events"
 import {
   createFoodCatalog,
+  searchFoodApi,
+  searchFoods,
   searchFoodsWithFallback,
 } from "../src/lib/nutrition.js"
 import { createFoodHandler } from "../scripts/legacy-server/foods.js"
@@ -18,6 +20,33 @@ const food = {
   fat: 0,
 }
 const local = createFoodCatalog([food])
+
+test("iogurte zero exclui água, Perly e nomes sem todos os termos antes de ordenar por calorias", async () => {
+  const yogurt = { ...food, id: "FATSECRET:1", name: "Iogurte Zero Morango", source: "FatSecret", calories: 27 }
+  const greek = { ...yogurt, id: "FATSECRET:2", name: "Iogurte Grego Pense Zero", calories: 60 }
+  const water = { ...food, id: "OFF:6111035000430", name: "Sidi Ali", category: "Iogurte zero", calories: 0 }
+  const perly = { ...water, id: "OFF:6111242100992", name: "Perly", calories: 1 }
+  const plain = { ...yogurt, id: "FATSECRET:3", name: "Iogurte Desnatado", calories: 20 }
+  const catalog = createFoodCatalog([water, perly])
+  assert.equal(searchFoods(catalog, "iogurte zero").total, 0)
+  const result = await searchFoodsWithFallback(catalog, "IÓGURTE zÉro", 20, "all", async () => ({
+    foods: [water, plain, greek, perly, yogurt], total: 5,
+  }))
+  assert.deepEqual(result.foods.map((entry) => entry.id), [yogurt.id, greek.id])
+  assert.equal(result.total, 2)
+})
+
+test("o cliente filtra nomes remotos sem aplicar termos de busca a um código de barras", async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    const yogurt = { ...food, id: "FATSECRET:1", name: "Iogurte Zero Morango" }
+    const water = { ...food, id: "OFF:6111035000430", name: "Sidi Ali", calories: 0 }
+    globalThis.fetch = async () => Response.json({ foods: [water, yogurt], total: 2 })
+    assert.deepEqual((await searchFoodApi("iogurte zero", 20)).foods.map((entry) => entry.id), [yogurt.id])
+    globalThis.fetch = async () => Response.json({ foods: [yogurt], total: 1 })
+    assert.deepEqual((await searchFoodApi("7891000100103", 20)).foods.map((entry) => entry.id), [yogurt.id])
+  } finally { globalThis.fetch = originalFetch }
+})
 
 test("todas as fontes são consultadas e os resultados são combinados", async () => {
   let calls = 0

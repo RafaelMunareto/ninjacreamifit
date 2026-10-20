@@ -4,7 +4,7 @@ import { requestApi } from "./http.js"
 /** @typedef {import("../types").FoodReference} FoodReference */
 /** @typedef {import("../types").Nutrition} Nutrition */
 /** @typedef {{food: LocalFood, grams: string, unit?: "g" | "ml"}} FoodLine */
-/** @typedef {{foods: LocalFood[], byId: Map<string, LocalFood>, index: {food: LocalFood, text: string, name: string}[]}} FoodCatalog */
+/** @typedef {{foods: LocalFood[], byId: Map<string, LocalFood>, index: {food: LocalFood, identifier: string, name: string}[]}} FoodCatalog */
 
 /** @param {string} value */
 const normalize = (value) =>
@@ -44,9 +44,7 @@ export function createFoodCatalog(foods) {
     index: foods.map((food) => ({
       food,
       name: normalize(food.name),
-      text: normalize(
-        `${food.source || "TBCA"} ${food.id} ${food.name} ${food.category}`,
-      ),
+      identifier: normalize(`${food.source || "TBCA"} ${food.id}`),
     })),
   }
 }
@@ -70,6 +68,23 @@ function compareFoodCalories(a, b) {
   return first < second ? -1 : first > second ? 1 : 0
 }
 
+/** @param {string} name @param {string} identifier @param {string[]} words */
+function matchesTerms(name, identifier, words) {
+  return words.length > 0 && (
+    words.every((word) => name.includes(word)) ||
+    (words.some((word) => /\d/.test(word)) && words.every((word) => identifier.includes(word)))
+  )
+}
+
+/** @param {LocalFood} food @param {string} query */
+export function matchesFoodQuery(food, query) {
+  return matchesTerms(
+    normalize(food.name),
+    normalize(`${food.source || "TBCA"} ${food.id}`),
+    normalize(query).split(/\s+/).filter(Boolean),
+  )
+}
+
 /** @param {FoodCatalog} catalog @param {string} query @param {number} [limit] @param {string} [source] */
 export function searchFoods(catalog, query, limit = 20, source = "all") {
   const term = normalize(query)
@@ -78,7 +93,7 @@ export function searchFoods(catalog, query, limit = 20, source = "all") {
   const matches = catalog.index.filter(
     (entry) =>
       (source === "all" || (entry.food.source || "TBCA") === source) &&
-      words.every((word) => entry.text.includes(word)),
+      matchesTerms(entry.name, entry.identifier, words),
   )
   matches.sort((a, b) => {
     const rank = /** @param {typeof a} item */ (item) =>
@@ -153,14 +168,20 @@ export const foodDescriptions = (items) =>
 /** @typedef {{foods: LocalFood[], total: number, source: string, fallback: boolean}} FoodResults */
 /** @param {string} query @param {number} limit @param {AbortSignal} [signal] */
 export async function searchFoodApi(query, limit, signal) {
+  const barcode = /^\d{8,14}$/.test(query.trim())
   const params = new URLSearchParams({
-    [/^\d{8,14}$/.test(query.trim()) ? "barcode" : "q"]: query,
+    [barcode ? "barcode" : "q"]: query,
     limit: String(limit),
   })
   const data = await requestApi(`foods?${params}`, { signal })
   if (!Array.isArray(data.foods) || !Number.isInteger(data.total))
     throw new Error("Resposta de alimentos inválida.")
-  return /** @type {{foods: LocalFood[], total: number}} */ (data)
+  const foods = barcode ? data.foods : data.foods.filter((/** @type {LocalFood} */ food) => matchesFoodQuery(food, query))
+  return /** @type {{foods: LocalFood[], total: number}} */ ({
+    ...data,
+    foods,
+    total: foods.length === data.foods.length ? data.total : foods.length,
+  })
 }
 
 /** @param {string[]} ids @param {AbortSignal} [signal] @returns {Promise<LocalFood[]>} */
@@ -185,6 +206,7 @@ export async function searchFoodsWithFallback(
   const local = searchFoods(catalog, query, limit, "TBCA")
   const api = await remote(query, limit).catch(() => ({ foods: [], total: 0 }))
   const foods = [...new Map([...api.foods, ...local.foods].map((food) => [food.id, food])).values()]
+    .filter((food) => /^\d{8,14}$/.test(query.trim()) || matchesFoodQuery(food, query))
     .sort(compareFoodCalories)
   return {
     foods: foods.slice(0, limit),
