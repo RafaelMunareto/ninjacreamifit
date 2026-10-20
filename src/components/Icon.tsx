@@ -1,4 +1,4 @@
-type IconName = "search" | "heart" | "star" | "plus" | "arrow" | "user" | "close" | "clock" | "bowl" | "check" | "menu"
+type IconName = "search" | "heart" | "star" | "plus" | "arrow" | "user" | "close" | "clock" | "bowl" | "check" | "menu" | "microphone" | "barcode" | "camera"
 
 export default function Icon({
   name,
@@ -10,6 +10,23 @@ export default function Icon({
   filled?: boolean
 }) {
   const paths: Record<IconName, React.ReactNode> = {
+    microphone: (
+      <>
+        <rect x="9" y="2" width="6" height="12" rx="3" />
+        <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" />
+      </>
+    ),
+    barcode: (
+      <>
+        <path d="M3 7V3h4M17 3h4v4M21 17v4h-4M7 21H3v-4M7 7v10M10 7v10M14 7v10M17 7v10" />
+      </>
+    ),
+    camera: (
+      <>
+        <path d="M8 5l2-2h4l2 2h4a1 1 0 0 1 1 1v13H3V6a1 1 0 0 1 1-1Z" />
+        <circle cx="12" cy="12" r="4" />
+      </>
+    ),
     search: (
       <>
         <circle cx="11" cy="11" r="7" />

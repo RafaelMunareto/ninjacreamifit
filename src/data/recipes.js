@@ -147,6 +147,7 @@ export const programs = {
   sorvete: "Sorvete",
   sorvete_light: "Sorvete light",
   gelato: "Gelato",
+  smoothie: "Smoothie",
 }
 
 export const categoryColors = {

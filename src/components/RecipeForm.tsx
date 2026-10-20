@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type FormEvent,
@@ -73,6 +74,9 @@ export default function RecipeForm({
       recipe?.ingredients.slice(recipe.foodItems?.length || 0).join("\n") || "",
   )
   const [showCalculator, setShowCalculator] = useState(true)
+  const [showTextIngredients, setShowTextIngredients] = useState(() =>
+    Boolean(recipe?.ingredients.slice(recipe.foodItems?.length || 0).length),
+  )
   const [macros, setMacros] = useState<Record<keyof Nutrition, string>>(() => ({
     protein: recipe ? String(recipe.protein) : "",
     carbs: recipe ? String(recipe.carbs) : "",
@@ -108,6 +112,7 @@ export default function RecipeForm({
     setAutomaticIngredients([])
     setFoodItems([])
     setShowCalculator(false)
+    setShowTextIngredients(true)
   }
 
   const handlePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -136,6 +141,10 @@ export default function RecipeForm({
       setError("Adicione uma foto válida antes de salvar.")
       return
     }
+    if (!automaticIngredients.length && !manualIngredients.trim()) {
+      setError("Adicione pelo menos um alimento à receita.")
+      return
+    }
     const form = new FormData(event.currentTarget)
     const string = (key: string) => String(form.get(key) || "")
     const requiredNumber = (key: string) => {
@@ -157,16 +166,22 @@ export default function RecipeForm({
           category: string("category") as Category,
           image: photo,
           program: string("program") as Program,
-          respin: string("respin") === "sim",
+          respin: recipe?.respin ?? false,
           toppings: hasToppings ? string("toppings") : "",
-          ingredients: [...automaticIngredients, ...lines("ingredients")],
+          ingredients: [
+            ...automaticIngredients,
+            ...manualIngredients
+              .split(/\r?\n/)
+              .map((line) => line.trim())
+              .filter(Boolean),
+          ],
           foodItems,
           instructions: lines("instructions"),
           protein: requiredNumber("protein_g"),
           carbs: requiredNumber("carbs_g"),
           fat: requiredNumber("fat_g"),
           calories: requiredNumber("calories"),
-          ...(adminMode ? {} : { authorName: string("author_name") }),
+          ...(adminMode ? {} : { authorName: author }),
         },
         recipe?.id,
         adminMode
@@ -227,14 +242,18 @@ export default function RecipeForm({
           ? "Altere os dados da receita e salve para atualizar o catálogo para todos."
           : recipe
             ? "Atualize sua receita. As avaliações serão preservadas."
-            : "Escolha seu nome e envie a receita. Depois, você poderá editar ou excluir em Minhas receitas."}
+            : `Publicando como ${author}.`}
       </p>
-      <form onSubmit={submit} className="mt-7 space-y-5" aria-busy={busy}>
-        <fieldset disabled={busy} className="min-w-0 space-y-6 border-0 p-0">
+      <form
+        onSubmit={submit}
+        className="mt-7 space-y-5 [&_input]:text-base [&_select]:text-base [&_textarea]:text-base"
+        aria-busy={busy}
+      >
+        <fieldset disabled={busy} className="min-w-0 space-y-8 border-0 p-0">
           <section
             className={
               page
-                ? "rounded-[28px] border border-outline bg-surface p-4 sm:p-7"
+                ? "rounded-[28px] border border-outline bg-surface p-5 sm:p-8"
                 : "space-y-5"
             }
           >
@@ -246,7 +265,7 @@ export default function RecipeForm({
             <div
               className={
                 page
-                  ? "grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]"
+                  ? "grid gap-7 lg:grid-cols-[16rem_minmax(0,1fr)]"
                   : "space-y-5"
               }
             >
@@ -255,7 +274,7 @@ export default function RecipeForm({
                   Foto da receita
                 </span>
                 <label
-                  className={`relative flex min-h-48 cursor-pointer items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed bg-surface focus-within:border-[#ef4f78] ${
+                  className={`relative flex min-h-40 cursor-pointer items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed bg-surface focus-within:border-[#ef4f78] ${
                     photoError
                       ? "border-[#ef4f78]"
                       : "border-outline hover:border-[#ef4f78]"
@@ -307,21 +326,6 @@ export default function RecipeForm({
                 )}
               </div>
               <div className="min-w-0 space-y-5">
-                {!adminMode && (
-                  <div>
-                    <Field
-                      label="Seu nome"
-                      name="author_name"
-                      placeholder="Como você quer aparecer nas receitas?"
-                      defaultValue={author === "Você" ? "" : author}
-                      maxLength={60}
-                    />
-                    <p className="mt-2 text-xs text-muted">
-                      Vamos lembrar seu nome neste navegador para as próximas
-                      receitas.
-                    </p>
-                  </div>
-                )}
                 <Field
                   label="Nome da receita"
                   name="recipe_name"
@@ -353,35 +357,19 @@ export default function RecipeForm({
                     defaultValue={recipe?.program}
                     options={Object.entries(programs)}
                   />
-                  <SelectField
-                    label="Precisa de re-spin?"
-                    name="respin"
-                    defaultValue={recipe?.respin ? "sim" : "nao"}
-                    options={[
-                      ["nao", "Não"],
-                      ["sim", "Sim"],
-                    ]}
-                  />
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-extrabold">
-                      Tem toppings?
-                    </span>
-                    <select
-                      name="has_toppings"
-                      value={hasToppings ? "sim" : "nao"}
-                      onChange={(event) =>
-                        setHasToppings(event.target.value === "sim")
-                      }
-                      className="form-input"
-                    >
-                      <option value="nao">Não</option>
-                      <option value="sim">Sim</option>
-                    </select>
-                  </label>
                 </div>
+                <label className="inline-flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={hasToppings}
+                    onChange={(event) => setHasToppings(event.target.checked)}
+                    className="size-5 accent-[#ef4f78]"
+                  />
+                  Adicionar cobertura
+                </label>
                 {hasToppings && (
                   <Field
-                    label="Quais toppings?"
+                    label="Cobertura"
                     name="toppings"
                     placeholder="Ex: morangos, granola e nibs de cacau"
                     defaultValue={recipe?.toppings}
@@ -394,14 +382,12 @@ export default function RecipeForm({
           <section
             className={
               page
-                ? "min-w-0 space-y-5 rounded-[28px] border border-outline bg-surface p-4 sm:p-7"
+                ? "min-w-0 space-y-6 rounded-[28px] border border-outline bg-surface p-5 sm:p-8"
                 : "space-y-5"
             }
           >
             {page && (
-              <h2 className="font-display text-xl font-black">
-                Alimentos e ingredientes
-              </h2>
+              <h2 className="font-display text-xl font-black">Ingredientes</h2>
             )}
             {showCalculator ? (
               <FoodCalculator
@@ -422,32 +408,25 @@ export default function RecipeForm({
                 Voltar à busca de alimentos por peso
               </button>
             )}
-            <label className="block">
-              <span className="mb-2 block text-sm font-extrabold">
-                {foodItems.length
-                  ? "Outros ingredientes e observações · opcional"
-                  : "Ingredientes · um por linha"}
-              </span>
-              <textarea
-                name="ingredients"
-                required={!automaticIngredients.length}
-                rows={4}
-                maxLength={15000}
-                value={manualIngredients}
-                onChange={(event) => setManualIngredients(event.target.value)}
-                placeholder={
-                  "200 ml de leite desnatado\n30 g de whey de baunilha"
-                }
-                className="form-input resize-y"
-              />
-              {foodItems.length > 0 && (
-                <span className="mt-2 block text-xs leading-relaxed text-muted">
-                  Só os alimentos selecionados entram no cálculo automático. Se
-                  adicionar outro ingrediente com calorias aqui, inclua-o também
-                  na calculadora ou ajuste os totais abaixo.
+            {showTextIngredients && (
+              <label className="block">
+                <span className="mb-2 block text-sm font-extrabold">
+                  Ingredientes em texto
                 </span>
-              )}
-            </label>
+                <textarea
+                  name="ingredients"
+                  required={!automaticIngredients.length}
+                  rows={4}
+                  maxLength={15000}
+                  value={manualIngredients}
+                  onChange={(event) => setManualIngredients(event.target.value)}
+                  placeholder={
+                    "200 ml de leite desnatado\n30 g de whey de baunilha"
+                  }
+                  className="form-input resize-y"
+                />
+              </label>
+            )}
           </section>
           <div
             className={
@@ -457,13 +436,13 @@ export default function RecipeForm({
             <section
               className={
                 page
-                  ? "rounded-[28px] border border-outline bg-surface p-4 sm:p-7"
+                  ? "rounded-[28px] border border-outline bg-surface p-5 sm:p-8"
                   : ""
               }
             >
               <label className="block">
                 <span className="mb-2 block text-sm font-extrabold">
-                  Modo de preparo · uma etapa por linha
+                  Modo de preparo
                 </span>
                 <textarea
                   name="instructions"
@@ -481,18 +460,16 @@ export default function RecipeForm({
             <section
               className={
                 page
-                  ? "rounded-[28px] border border-outline bg-surface p-4 sm:p-7"
+                  ? "rounded-[28px] border border-outline bg-surface p-5 sm:p-8"
                   : ""
               }
             >
               <div>
-                <p className="text-sm font-extrabold">
-                  Macros e calorias por pote · obrigatório
-                </p>
+                <p className="text-sm font-extrabold">Nutrição por pote</p>
                 <p className="mb-3 mt-1 text-xs text-muted">
                   {foodItems.length
-                    ? "Totais dos alimentos selecionados. Você pode corrigir os valores, se necessário."
-                    : "Preencha os quatro campos ou escolha alimentos acima para calcular. Informe 0 quando o nutriente não estiver presente."}
+                    ? "Calculada a partir dos ingredientes."
+                    : "Adicione alimentos para calcular os totais."}
                 </p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <Field
@@ -703,10 +680,14 @@ function SelectField({
   options: string[][]
   defaultValue?: string
 }) {
+  const labelId = useId()
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-extrabold">{label}</span>
+      <span id={labelId} className="mb-2 block text-sm font-extrabold">
+        {label}
+      </span>
       <select
+        aria-labelledby={labelId}
         name={name}
         required
         defaultValue={defaultValue}

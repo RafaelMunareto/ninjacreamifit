@@ -17,6 +17,8 @@ No desenvolvimento, o proxy usa `http://127.0.0.1:5075`. Para outro host, config
 
 A inclusão de receitas abre a página `/receitas/nova`; a edição, em Minhas receitas e na administração, usa o mesmo formulário em `/receitas/:id/editar`, preenchido com os dados salvos. O formulário é mais largo no desktop e tem seções empilhadas no celular. As páginas permitem acesso direto, recarregamento e navegação pelos botões Voltar e Avançar do navegador. O envio mantém fotos, alimentos e pesos no mesmo contrato da API; falhas de envio preservam os campos para tentar novamente.
 
+O autor é preenchido pelo nome da conta Clerk, sem campo de nome no envio. O formulário oferece o programa Smoothie e não pede re-spin nem observações extras. A inclusão separa a busca dos alimentos do pote no desktop e empilha as áreas no celular, com controles maiores e resultados resumidos. Ingredientes antigos em texto continuam editáveis nas receitas existentes.
+
 O catálogo de alimentos vem da API e é guardado no cache do navegador. A busca local e o cálculo por peso continuam disponíveis depois de carregar a tabela. A consulta remota e a publicação de receitas exigem conexão. Os códigos e pesos dos alimentos são preservados. A busca combina as fontes sem duplicar códigos retornados localmente e pela API.
 
 O cliente conserva a identificação de aparelho e a migração idempotente do antigo IndexedDB. O backend .NET preserva o mesmo contrato, hashes de autoria e identificação Clerk. A troca de backend não permite editar a receita de outro autor nem recupera uma identificação de aparelho apagada.

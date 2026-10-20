@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useAuth, Show, SignInButton, UserButton } from "@clerk/react"
+import { useAuth, useUser, Show, SignInButton, UserButton } from "@clerk/react"
 import type { AdminDetails, Recipe, RecipeInput, Snapshot } from "./types"
 import { categories } from "./data/recipes.js"
 import * as api from "./lib/api.js"
@@ -146,6 +146,12 @@ function RecipeCard({
 
 export default function App() {
   const { getToken, isLoaded, userId } = useAuth()
+  const { user } = useUser()
+  const accountName = (
+    user?.fullName?.trim() ||
+    user?.username?.trim() ||
+    ""
+  ).slice(0, 60)
   const {
     isRecipePage,
     editingRecipeId,
@@ -410,7 +416,9 @@ export default function App() {
         page
         recipe={editing}
         adminMode={adminMode}
-        author={adminMode ? editing.author : snapshot.profile.name}
+        author={
+          adminMode ? editing.author : accountName || snapshot.profile.name
+        }
         backLabel={backLabel}
         onSave={saveRecipe}
         onClose={closeRecipePage}
@@ -789,7 +797,7 @@ export default function App() {
               </strong>
               <p className="mt-2 text-muted">
                 {collection === "mine" && !query && category === "Todos"
-                  ? "Escolha seu nome ao enviar uma receita. Depois, você poderá editar ou excluir por aqui, sem precisar de senha."
+                  ? "Publique uma receita para encontrá-la aqui e editar quando quiser."
                   : "Tente outra busca ou seja a primeira pessoa a criar essa receita."}
               </p>
               <button
@@ -928,6 +936,7 @@ export default function App() {
       {showProfile && snapshot && (
         <ProfileModal
           profile={snapshot.profile}
+          accountName={accountName}
           recipes={recipes}
           onClose={() => setShowProfile(false)}
           onSave={api.saveProfile}

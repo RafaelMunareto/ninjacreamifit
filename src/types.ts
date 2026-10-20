@@ -1,4 +1,4 @@
-export type Program = "sorbet" | "sorvete" | "sorvete_light" | "gelato"
+export type Program = "sorbet" | "sorvete" | "sorvete_light" | "gelato" | "smoothie"
 export type Category = "Frutados" | "Chocolate" | "Cremosos" | "Veganos" | "Baixa caloria"
 
 export interface Nutrition {

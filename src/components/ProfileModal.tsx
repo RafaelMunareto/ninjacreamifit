@@ -7,6 +7,7 @@ import { useTheme, type ThemePreference } from "../lib/theme"
 
 export default function ProfileModal({
   profile,
+  accountName,
   recipes,
   onClose,
   onSave,
@@ -14,6 +15,7 @@ export default function ProfileModal({
   onAdmin,
 }: {
   profile: Profile
+  accountName?: string
   recipes: Recipe[]
   onClose: () => void
   onSave: (name: string) => Promise<void>
@@ -73,43 +75,48 @@ export default function ProfileModal({
           </button>
         </div>
         <p className="mt-4 text-sm leading-relaxed text-muted">
-          Basta escolher seu nome para criar receitas. Em Minhas receitas, você
-          pode editar e excluir o que enviou, sem senha. Seu perfil é lembrado
-          neste navegador e suas receitas ficam disponíveis no site para todos.
+          Em Minhas receitas, você pode editar e excluir o que publicou.
         </p>
-        <form onSubmit={submit} className="mt-6 space-y-4">
-          <label className="block">
-            <span className="mb-2 block text-sm font-extrabold">
-              Seu nome nas receitas
-            </span>
-            <input
-              name="name"
-              required
-              maxLength={60}
-              defaultValue={profile.name === "Você" ? "" : profile.name}
-              placeholder="Como você quer aparecer nas receitas?"
-              onChange={() => setSaved(false)}
-              className="form-input"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-full bg-[#342820] px-6 py-3 text-sm font-extrabold text-white"
-          >
-            {saving ? "Salvando…" : "Salvar perfil"}
-          </button>
-          {error && (
-            <p role="alert" className="text-sm font-bold text-[#b92e53]">
-              {error}
-            </p>
-          )}
-          {saved && (
-            <p role="status" className="text-sm font-bold text-[#52642f]">
-              Perfil salvo!
-            </p>
-          )}
-        </form>
+        {accountName ? (
+          <div className="mt-6 rounded-2xl border border-outline bg-page p-4">
+            <p className="text-xs font-bold text-muted">Nome da sua conta</p>
+            <p className="mt-1 font-bold">{accountName}</p>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="mt-6 space-y-4">
+            <label className="block">
+              <span className="mb-2 block text-sm font-extrabold">
+                Seu nome nas receitas
+              </span>
+              <input
+                name="name"
+                required
+                maxLength={60}
+                defaultValue={profile.name === "Você" ? "" : profile.name}
+                placeholder="Como você quer aparecer nas receitas?"
+                onChange={() => setSaved(false)}
+                className="form-input"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-full bg-[#342820] px-6 py-3 text-sm font-extrabold text-white"
+            >
+              {saving ? "Salvando…" : "Salvar perfil"}
+            </button>
+            {error && (
+              <p role="alert" className="text-sm font-bold text-[#b92e53]">
+                {error}
+              </p>
+            )}
+            {saved && (
+              <p role="status" className="text-sm font-bold text-[#52642f]">
+                Perfil salvo!
+              </p>
+            )}
+          </form>
+        )}
         <div className="mt-7 border-t border-outline pt-5">
           <label className="block">
             <span className="mb-2 block text-sm font-extrabold">Aparência</span>

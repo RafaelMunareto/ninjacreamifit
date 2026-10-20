@@ -807,560 +807,694 @@ export default function FoodCalculator({
         </div>
       )}
       {catalog && !restoreError && (
-        <>
-          <label className="mt-5 block">
-            <span className="mb-2 block text-sm font-extrabold">
-              Buscar alimento
-            </span>
-            <div className="flex items-center gap-3 rounded-2xl border border-outline bg-page px-4">
-              <Icon name="search" size={18} />
-              <input
-                ref={searchInputRef}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                maxLength={100}
-                placeholder="Ex: banana, leite desnatado, cacau…"
-                className="min-w-0 flex-1 bg-transparent py-3.5 text-sm outline-none"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") event.preventDefault()
-                }}
-              />
-              {searching && (
-                <span
-                  aria-hidden="true"
-                  className="size-4 shrink-0 animate-spin rounded-full border-2 border-outline border-t-current text-[#52642f] motion-reduce:animate-none"
+        <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <div className="min-w-0">
+            <label className="block">
+              <span className="mb-3 block text-base font-extrabold">
+                Busque pelo nome ou código de barras
+              </span>
+              <div className="flex items-center gap-3 rounded-2xl border border-outline bg-page px-4">
+                <Icon name="search" size={18} />
+                <input
+                  ref={searchInputRef}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  maxLength={100}
+                  placeholder="Ex: banana, leite desnatado, cacau…"
+                  className="min-w-0 flex-1 bg-transparent py-4 text-base outline-none"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") event.preventDefault()
+                  }}
                 />
-              )}
-            </div>
-          </label>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={startVoiceInput}
-              disabled={voiceWaiting || identifyingPhoto}
-              aria-pressed={listening}
-              aria-busy={voiceWaiting}
-              className={`rounded-full px-4 py-2.5 text-xs font-bold text-white transition disabled:cursor-wait disabled:opacity-70 ${
-                voiceWaiting
-                  ? "animate-pulse bg-[#6950a8]"
-                  : listening
-                    ? "animate-pulse bg-[#b92e53]"
-                    : "bg-[#52642f] hover:bg-[#435326]"
-              }`}
-            >
-              {voicePhase === "starting"
-                ? "Ativando microfone…"
-                : voicePhase === "stopping"
-                  ? "Concluindo gravação…"
-                  : processingVoice
-                    ? "Buscando alimento…"
-                    : listening
-                      ? "Parar e analisar"
-                      : "🎙️ Falar alimento"}
-            </button>
-            <button
-              type="button"
-              onClick={() => void scanBarcode()}
-              disabled={voiceBusy}
-              className="rounded-full bg-[#ef4f78] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
-            >
-              {scanning ? "Lendo código…" : "Cod de barras"}
-            </button>
-            <button
-              type="button"
-              onClick={() => aiPhotoRef.current?.click()}
-              disabled={identifyingPhoto || voiceBusy}
-              aria-busy={identifyingPhoto}
-              className="rounded-full border border-[#9b7de1] bg-[#b79af6] px-4 py-2.5 text-xs font-extrabold text-[#342820] transition hover:bg-[#a688eb] disabled:cursor-wait disabled:opacity-60"
-            >
-              <span className="inline-flex items-center gap-2">
-                {identifyingPhoto && (
+                {searching && (
                   <span
-                    className="size-3.5 animate-spin rounded-full border-2 border-[#342820]/30 border-t-[#342820]"
                     aria-hidden="true"
+                    className="size-4 shrink-0 animate-spin rounded-full border-2 border-outline border-t-current text-[#52642f] motion-reduce:animate-none"
                   />
                 )}
-                {identifyingPhoto ? "Analisando foto…" : "Foto (IA)"}
-              </span>
-            </button>
-            <input
-              ref={aiPhotoRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              capture="environment"
-              onChange={identifyFoodPhoto}
-              className="sr-only"
-              aria-label="Tirar foto do alimento para identificar com IA"
-            />
-          </div>
-          {voiceTranscript && (
-            <p
-              aria-label="Transcrição da fala"
-              aria-live="polite"
-              className="mt-3 text-sm text-muted"
-            >
-              Você disse: “{voiceTranscript}”
-            </p>
-          )}
-          {voiceBusy && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="mt-3 overflow-hidden rounded-2xl border border-[#cbd9b2] bg-green-soft"
-            >
-              <div
-                className={`h-1 w-full ${
-                  processingVoice
-                    ? "animate-pulse bg-[#6950a8]"
-                    : "bg-[#8ca85b]"
+              </div>
+            </label>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={startVoiceInput}
+                disabled={voiceWaiting || identifyingPhoto}
+                aria-pressed={listening}
+                aria-busy={voiceWaiting}
+                aria-label={voiceBusy ? undefined : "Falar alimento"}
+                className={`inline-flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-xl border border-outline px-2 py-3 text-xs font-semibold transition disabled:cursor-wait disabled:opacity-70 sm:min-h-12 sm:flex-row sm:text-sm ${
+                  voiceWaiting
+                    ? "animate-pulse bg-purple-soft text-[#6950a8]"
+                    : listening
+                      ? "animate-pulse bg-pink-soft text-[#b92e53]"
+                      : "bg-page text-foreground hover:border-[#ef4f78]"
                 }`}
+              >
+                <Icon name="microphone" size={18} />
+                {voiceWaiting ? "Aguarde" : listening ? "Parar" : "Falar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void scanBarcode()}
+                disabled={voiceBusy}
+                aria-label="Cod de barras"
+                className="inline-flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-xl border border-outline bg-page px-2 py-3 text-xs font-semibold transition hover:border-[#ef4f78] disabled:opacity-60 sm:min-h-12 sm:flex-row sm:text-sm"
+              >
+                <Icon name="barcode" size={18} />
+                {scanning ? "Lendo…" : "Código"}
+              </button>
+              <button
+                type="button"
+                onClick={() => aiPhotoRef.current?.click()}
+                disabled={identifyingPhoto || voiceBusy}
+                aria-busy={identifyingPhoto}
+                aria-label="Buscar alimento por foto"
+                className="inline-flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-xl border border-outline bg-page px-2 py-3 text-xs font-semibold transition hover:border-[#ef4f78] disabled:cursor-wait disabled:opacity-60 sm:min-h-12 sm:flex-row sm:text-sm"
+              >
+                <span className="inline-flex flex-col items-center gap-1.5 sm:flex-row">
+                  {identifyingPhoto ? (
+                    <span
+                      className="size-3.5 animate-spin rounded-full border-2 border-[#342820]/30 border-t-[#342820]"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Icon name="camera" size={18} />
+                  )}
+                  {identifyingPhoto ? "Aguarde" : "Foto"}
+                </span>
+              </button>
+              <input
+                ref={aiPhotoRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                capture="environment"
+                onChange={identifyFoodPhoto}
+                className="sr-only"
+                aria-label="Tirar foto do alimento para identificar com IA"
               />
-              <div className="flex items-center gap-3 p-4">
-                <span
-                  className={`grid size-10 shrink-0 place-items-center rounded-full text-lg ${
-                    processingVoice
-                      ? "bg-purple-soft text-[#6950a8]"
-                      : "animate-pulse bg-[#e5efd0] text-[#52642f]"
-                  }`}
-                  aria-hidden="true"
-                >
-                  {processingVoice ? "✦" : "🎙️"}
-                </span>
-                <span>
-                  <strong className="block text-sm text-foreground">
-                    {voicePhase === "starting"
-                      ? "Ativando o microfone"
-                      : voicePhase === "stopping"
-                        ? "Concluindo a gravação"
-                        : processingVoice
-                          ? "Buscando os nutrientes"
-                          : "Ouvindo o alimento"}
-                  </strong>
-                  <span className="mt-0.5 block text-xs text-muted">
-                    {voicePhase === "starting"
-                      ? "Se o Safari pedir, permita o acesso ao microfone."
-                      : voicePhase === "stopping"
-                        ? "Aguardando as últimas palavras reconhecidas…"
-                        : processingVoice
-                          ? "Sua fala foi reconhecida. Buscando o alimento e a quantidade…"
-                          : "Fale o alimento e a quantidade. Toque novamente para concluir."}
-                  </span>
-                </span>
-              </div>
             </div>
-          )}
-          <div
-            className={`relative mt-3 overflow-hidden rounded-2xl bg-black ${
-              scanning ? "" : "hidden"
-            }`}
-          >
-            <video
-              ref={videoRef}
-              muted
-              playsInline
-              className="aspect-video w-full object-cover"
-              aria-label="Câmera para leitura do código de barras"
-            />
-            <div className="pointer-events-none absolute inset-x-[12%] top-1/2 h-20 -translate-y-1/2 rounded-xl border-2 border-[#b8e46c] shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
-            <button
-              type="button"
-              onClick={closeScanner}
-              className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-2 text-xs font-bold text-white"
-            >
-              Fechar câmera
-            </button>
-          </div>
-          {identifyingPhoto && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="mt-3 overflow-hidden rounded-2xl border border-[#d9cdf8] bg-purple-soft"
-            >
-              <div className="h-1 w-full animate-pulse bg-[#b79af6]" />
-              <div className="flex items-center gap-3 p-4">
-                <span
-                  className="grid size-9 shrink-0 place-items-center rounded-full bg-purple-soft text-[#6950a8]"
-                  aria-hidden="true"
-                >
-                  <span className="size-4 animate-spin rounded-full border-2 border-[#6950a8]/30 border-t-[#6950a8]" />
-                </span>
-                <span>
-                  <strong className="block text-sm text-foreground">
-                    Analisando sua foto
-                  </strong>
-                  <span className="mt-0.5 block text-xs text-muted">
-                    Procurando alimento, marca e quantidade…
-                  </span>
-                </span>
-              </div>
-            </div>
-          )}
-          {foodNotice && (
-            <p
-              role="status"
-              className="mt-3 rounded-xl bg-green-soft p-3 text-sm font-bold text-[#52642f]"
-            >
-              {foodNotice}
-            </p>
-          )}
-          {searching && !results.nextCursor && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="mt-3 flex items-center gap-3 rounded-2xl border border-outline bg-green-soft p-4"
-            >
-              <span
-                aria-hidden="true"
-                className="size-6 shrink-0 animate-spin rounded-full border-[3px] border-outline border-t-current text-[#52642f] motion-reduce:animate-none"
-              />
-              <div>
-                <strong className="block text-sm text-foreground">
-                  Buscando alimentos…
-                </strong>
-                <span className="mt-0.5 block text-xs text-muted">
-                  {results.foods.length
-                    ? "Você já pode selecionar os alimentos encontrados enquanto buscamos mais opções."
-                    : "Aguarde enquanto encontramos as opções para sua busca."}
-                </span>
-              </div>
-            </div>
-          )}
-          {searchError && (
-            <p
-              role="alert"
-              className="mt-3 rounded-xl bg-pink-soft p-3 text-sm text-[#9b2448]"
-            >
-              {searchError}
-            </p>
-          )}
-          {query.trim().length >= 2 &&
-            !searchError &&
-            (!!results.foods.length || !searching) && (
-              <p role="status" className="mt-3 text-xs text-muted">
-                {results.foods.length
-                  ? `${results.foods.length.toLocaleString("pt-BR")} alimentos carregados${
-                      searching
-                        ? " · buscando mais opções…"
-                        : results.nextCursor
-                          ? " · role a lista para carregar mais"
-                          : ""
-                    }`
-                  : searching
-                    ? "Buscando alimento…"
-                    : results.nextCursor
-                      ? "A busca ainda tem páginas para consultar."
-                      : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
+            {voiceTranscript && (
+              <p
+                aria-label="Transcrição da fala"
+                aria-live="polite"
+                className="mt-3 text-sm text-muted"
+              >
+                Você disse: “{voiceTranscript}”
               </p>
             )}
-          {!searching &&
-            results.nextCursor &&
-            (partialResults || searchError) && (
-              <div className="mt-3 rounded-2xl border border-outline bg-yellow-soft p-3 text-sm text-[#52642f]">
-                <p role="status">
-                  Algumas bases de alimentos estão temporariamente
-                  indisponíveis. A lista ainda pode estar incompleta.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void loadMore()}
-                  className="mt-2 rounded-full border border-current px-4 py-2 text-xs font-extrabold"
-                >
-                  Tentar busca novamente
-                </button>
+            {voiceBusy && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mt-3 overflow-hidden rounded-2xl border border-[#cbd9b2] bg-green-soft"
+              >
+                <div
+                  className={`h-1 w-full ${
+                    processingVoice
+                      ? "animate-pulse bg-[#6950a8]"
+                      : "bg-[#8ca85b]"
+                  }`}
+                />
+                <div className="flex items-center gap-3 p-4">
+                  <span
+                    className={`grid size-10 shrink-0 place-items-center rounded-full text-lg ${
+                      processingVoice
+                        ? "bg-purple-soft text-[#6950a8]"
+                        : "animate-pulse bg-[#e5efd0] text-[#52642f]"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {processingVoice ? "✦" : "🎙️"}
+                  </span>
+                  <span>
+                    <strong className="block text-sm text-foreground">
+                      {voicePhase === "starting"
+                        ? "Ativando o microfone"
+                        : voicePhase === "stopping"
+                          ? "Concluindo a gravação"
+                          : processingVoice
+                            ? "Buscando os nutrientes"
+                            : "Ouvindo o alimento"}
+                    </strong>
+                    <span className="mt-0.5 block text-xs text-muted">
+                      {voicePhase === "starting"
+                        ? "Se o Safari pedir, permita o acesso ao microfone."
+                        : voicePhase === "stopping"
+                          ? "Aguardando as últimas palavras reconhecidas…"
+                          : processingVoice
+                            ? "Sua fala foi reconhecida. Buscando o alimento e a quantidade…"
+                            : "Fale o alimento e a quantidade. Toque novamente para concluir."}
+                    </span>
+                  </span>
+                </div>
               </div>
             )}
-          <div className="mt-3 rounded-2xl border border-outline bg-page p-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (manualOpen) setManualOpen(false)
-                else openManualFood(normalizeFoodBarcode(query))
-              }}
-              className="text-sm font-extrabold text-[#52642f]"
-              aria-expanded={manualOpen}
+            <div
+              className={`relative mt-3 overflow-hidden rounded-2xl bg-black ${
+                scanning ? "" : "hidden"
+              }`}
             >
-              {manualOpen
-                ? "− Fechar alimento manual"
-                : "+ Não encontrou? Incluir alimento manualmente"}
-            </button>
-            {manualOpen && (
-              <div
-                ref={manualFormRef}
-                role="group"
-                aria-label="Cadastro manual de alimento"
-                className="mt-3 scroll-mt-24 space-y-3"
+              <video
+                ref={videoRef}
+                muted
+                playsInline
+                className="aspect-video w-full object-cover"
+                aria-label="Câmera para leitura do código de barras"
+              />
+              <div className="pointer-events-none absolute inset-x-[12%] top-1/2 h-20 -translate-y-1/2 rounded-xl border-2 border-[#b8e46c] shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
+              <button
+                type="button"
+                onClick={closeScanner}
+                className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-2 text-xs font-bold text-white"
               >
-                {manualFood.barcode && (
-                  <p className="text-sm font-semibold">
-                    Cadastre os dados do rótulo com este código de barras para
-                    encontrar o alimento nas próximas buscas.
+                Fechar câmera
+              </button>
+            </div>
+            {identifyingPhoto && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mt-3 overflow-hidden rounded-2xl border border-[#d9cdf8] bg-purple-soft"
+              >
+                <div className="h-1 w-full animate-pulse bg-[#b79af6]" />
+                <div className="flex items-center gap-3 p-4">
+                  <span
+                    className="grid size-9 shrink-0 place-items-center rounded-full bg-purple-soft text-[#6950a8]"
+                    aria-hidden="true"
+                  >
+                    <span className="size-4 animate-spin rounded-full border-2 border-[#6950a8]/30 border-t-[#6950a8]" />
+                  </span>
+                  <span>
+                    <strong className="block text-sm text-foreground">
+                      Analisando sua foto
+                    </strong>
+                    <span className="mt-0.5 block text-xs text-muted">
+                      Procurando alimento, marca e quantidade…
+                    </span>
+                  </span>
+                </div>
+              </div>
+            )}
+            {foodNotice && (
+              <p
+                role="status"
+                className="mt-3 rounded-xl bg-green-soft p-3 text-sm font-bold text-[#52642f]"
+              >
+                {foodNotice}
+              </p>
+            )}
+            {searching && !results.nextCursor && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mt-3 flex items-center gap-3 rounded-2xl border border-outline bg-green-soft p-4"
+              >
+                <span
+                  aria-hidden="true"
+                  className="size-6 shrink-0 animate-spin rounded-full border-[3px] border-outline border-t-current text-[#52642f] motion-reduce:animate-none"
+                />
+                <div>
+                  <strong className="block text-sm text-foreground">
+                    Buscando alimentos…
+                  </strong>
+                  <span className="mt-0.5 block text-xs text-muted">
+                    {results.foods.length
+                      ? "Você já pode selecionar os alimentos encontrados enquanto buscamos mais opções."
+                      : "Aguarde enquanto encontramos as opções para sua busca."}
+                  </span>
+                </div>
+              </div>
+            )}
+            {searchError && (
+              <p
+                role="alert"
+                className="mt-3 rounded-xl bg-pink-soft p-3 text-sm text-[#9b2448]"
+              >
+                {searchError}
+              </p>
+            )}
+            {query.trim().length >= 2 &&
+              !searchError &&
+              (!!results.foods.length || !searching) && (
+                <p role="status" className="mt-3 text-xs text-muted">
+                  {results.foods.length
+                    ? `${results.foods.length.toLocaleString("pt-BR")} alimentos carregados${
+                        searching
+                          ? " · buscando mais opções…"
+                          : results.nextCursor
+                            ? " · role a lista para carregar mais"
+                            : ""
+                      }`
+                    : searching
+                      ? "Buscando alimento…"
+                      : results.nextCursor
+                        ? "A busca ainda tem páginas para consultar."
+                        : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
+                </p>
+              )}
+            {!searching &&
+              results.nextCursor &&
+              (partialResults || searchError) && (
+                <div className="mt-3 rounded-2xl border border-outline bg-yellow-soft p-3 text-sm text-[#52642f]">
+                  <p role="status">
+                    Algumas bases de alimentos estão temporariamente
+                    indisponíveis. A lista ainda pode estar incompleta.
                   </p>
-                )}
-                <label className="block">
-                  <span className="mb-1 block text-xs font-bold">
-                    Código de barras · opcional
-                  </span>
-                  <input
-                    value={manualFood.barcode}
-                    onChange={(event) =>
-                      setManualFood((current) => ({
-                        ...current,
-                        barcode: event.target.value,
-                      }))
-                    }
-                    inputMode="numeric"
-                    maxLength={14}
-                    pattern="[0-9]{8,14}"
-                    className="form-input"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs font-bold">
-                    Nome do alimento
-                  </span>
-                  <input
-                    value={manualFood.name}
-                    onChange={(event) =>
-                      setManualFood((current) => ({
-                        ...current,
-                        name: event.target.value,
-                      }))
-                    }
-                    placeholder="Ex.: pasta de amendoim da minha marca"
-                    className="form-input bg-surface"
-                  />
-                </label>
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                  <label>
+                  <button
+                    type="button"
+                    onClick={() => void loadMore()}
+                    className="mt-2 rounded-full border border-current px-4 py-2 text-xs font-extrabold"
+                  >
+                    Tentar busca novamente
+                  </button>
+                </div>
+              )}
+            {aiMessage && (
+              <p
+                role="status"
+                className="mt-2 text-xs font-bold text-[#52642f]"
+              >
+                {aiMessage}
+              </p>
+            )}
+            {aiError && (
+              <div
+                role="alert"
+                className="mt-3 rounded-2xl border border-[#f2b8c8] bg-pink-soft p-3 text-sm text-[#9b2448]"
+              >
+                <strong className="block">A identificação por IA falhou</strong>
+                <span className="mt-1 block">{aiError}</span>
+                <span className="mt-1 block text-xs">
+                  Tente outra foto com boa luz e a embalagem inteira visível.
+                </span>
+              </div>
+            )}
+            <div className="flex flex-col">
+              {(!!results.foods.length || !!results.nextCursor) && (
+                <div
+                  ref={resultsScrollRef}
+                  role="region"
+                  aria-label="Lista de alimentos com rolagem"
+                  tabIndex={0}
+                  className="order-2 mt-4 max-h-96 space-y-3 overflow-y-auto overscroll-contain lg:max-h-[32rem]"
+                >
+                  <ul
+                    aria-label="Resultados de alimentos"
+                    className="space-y-3"
+                  >
+                    {results.foods.map((food) => {
+                      const complete = hasCompleteNutrition(food)
+                      return (
+                        <li key={food.id}>
+                          <button
+                            type="button"
+                            disabled={!complete || items.length >= 50}
+                            onClick={() => add(food)}
+                            aria-label={`Adicionar ${food.name} · ${food.source || "TBCA"}`}
+                            className="flex w-full items-center justify-between gap-4 rounded-2xl border border-outline bg-surface p-4 text-left transition hover:border-[#ef4f78] hover:bg-pink-soft/30 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span className="min-w-0 flex-1">
+                              <strong className="block break-words text-sm">
+                                {food.name}
+                              </strong>
+                              <span className="mt-1 block text-xs text-muted">
+                                {complete
+                                  ? `${
+                                      food.source === "Manual"
+                                        ? "Base da comunidade"
+                                        : food.source || "TBCA"
+                                    } · ${display(food.calories)} kcal / 100 ${food.basisUnit || "g"}`
+                                  : "Dados incompletos na base · preencha manualmente"}
+                              </span>
+                            </span>
+                            {complete && (
+                              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-pink-soft text-[#ef4f78]">
+                                <Icon name="plus" />
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  {results.nextCursor && (
+                    <div
+                      ref={resultsEndRef}
+                      className="min-h-8 p-2 text-center text-xs text-muted"
+                    >
+                      {searching ? (
+                        <span
+                          role="status"
+                          className="inline-flex items-center gap-2"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="size-4 shrink-0 animate-spin rounded-full border-2 border-outline border-t-current text-[#52642f] motion-reduce:animate-none"
+                          />
+                          Carregando mais alimentos…
+                        </span>
+                      ) : !partialResults && !searchError ? (
+                        "Role para carregar mais alimentos"
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              )}
+              {!!aiSuggestions.length && (
+                <div className="order-1 mt-4 rounded-2xl border border-[#cfc0f5] bg-purple-soft p-4">
+                  <p className="text-xs font-extrabold uppercase tracking-wide text-[#6950a8]">
+                    Confirme o alimento antes de adicionar
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    {aiSuggestions.map((aiSuggestion) => (
+                      <div
+                        key={aiSuggestion.food}
+                        className="rounded-xl bg-surface p-3"
+                      >
+                        <p className="text-sm font-black">
+                          {aiSuggestion.food}
+                        </p>
+                        <p className="mt-1 text-xs text-muted">
+                          {aiSuggestion.brand
+                            ? `Marca: ${aiSuggestion.brand}`
+                            : "Marca não identificada"}
+                        </p>
+                        <div className="mt-3 grid max-w-xs grid-cols-[minmax(0,1fr)_auto] gap-2">
+                          <label>
+                            <span className="mb-1 block text-xs font-bold">
+                              Quantidade
+                            </span>
+                            <input
+                              type="number"
+                              min={0.01}
+                              max={10000}
+                              step="any"
+                              value={aiSuggestion.quantity ?? ""}
+                              onChange={(event) =>
+                                setAiSuggestions((current) =>
+                                  current.map((item) =>
+                                    item.food === aiSuggestion.food
+                                      ? {
+                                          ...item,
+                                          quantity: event.target.value
+                                            ? Number(event.target.value)
+                                            : undefined,
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              className="form-input bg-surface"
+                            />
+                          </label>
+                          <label>
+                            <span className="mb-1 block text-xs font-bold">
+                              Unidade
+                            </span>
+                            <select
+                              value={aiSuggestion.unit ?? "g"}
+                              onChange={(event) =>
+                                setAiSuggestions((current) =>
+                                  current.map((item) =>
+                                    item.food === aiSuggestion.food
+                                      ? {
+                                          ...item,
+                                          unit:
+                                            event.target.value === "ml"
+                                              ? "ml"
+                                              : "g",
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              className="form-input bg-surface"
+                            >
+                              <option value="g">g</option>
+                              <option value="ml">ml</option>
+                            </select>
+                          </label>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => acceptAiSuggestion(aiSuggestion)}
+                          disabled={
+                            items.length >= 50 ||
+                            !aiSuggestion.matchedFood ||
+                            !aiSuggestion.quantity
+                          }
+                          className="mt-3 rounded-lg bg-[#6950a8] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {!aiSuggestion.quantity
+                            ? "Informe a quantidade"
+                            : aiSuggestion.matchedFood
+                              ? "Aceitar e adicionar"
+                              : aiSuggestion.lookupComplete
+                                ? "Sem dados nutricionais"
+                                : "Buscando dados…"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={rejectAiSuggestion}
+                    className="mt-3 rounded-lg border border-[#cfc0f5] px-3 py-2 text-xs font-bold text-[#6950a8]"
+                  >
+                    Recusar todas
+                  </button>
+                </div>
+              )}
+            </div>
+            <div
+              className={
+                manualOpen
+                  ? "mt-5 rounded-2xl border border-outline bg-page p-5"
+                  : "mt-5"
+              }
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (manualOpen) setManualOpen(false)
+                  else openManualFood(normalizeFoodBarcode(query))
+                }}
+                className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#52642f]"
+                aria-expanded={manualOpen}
+              >
+                {manualOpen ? "− Fechar cadastro" : "+ Cadastrar alimento"}
+              </button>
+              {manualOpen && (
+                <div
+                  ref={manualFormRef}
+                  role="group"
+                  aria-label="Cadastro manual de alimento"
+                  className="mt-5 scroll-mt-24 space-y-5"
+                >
+                  <label className="block">
                     <span className="mb-1 block text-xs font-bold">
-                      Quantidade
+                      Código de barras · opcional
                     </span>
                     <input
-                      type="number"
-                      min={0.01}
-                      max={10000}
-                      step="any"
-                      value={manualFood.quantity}
+                      value={manualFood.barcode}
                       onChange={(event) =>
                         setManualFood((current) => ({
                           ...current,
-                          quantity: event.target.value,
+                          barcode: event.target.value,
                         }))
                       }
+                      inputMode="numeric"
+                      maxLength={14}
+                      pattern="[0-9]{8,14}"
+                      className="form-input"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-bold">
+                      Nome do alimento
+                    </span>
+                    <input
+                      value={manualFood.name}
+                      onChange={(event) =>
+                        setManualFood((current) => ({
+                          ...current,
+                          name: event.target.value,
+                        }))
+                      }
+                      placeholder="Ex.: pasta de amendoim da minha marca"
                       className="form-input bg-surface"
                     />
                   </label>
-                  <label>
-                    <span className="mb-1 block text-xs font-bold">
-                      Unidade
-                    </span>
-                    <select
-                      value={manualFood.unit}
-                      onChange={(event) =>
-                        setManualFood((current) => ({
-                          ...current,
-                          unit: event.target.value === "ml" ? "ml" : "g",
-                        }))
-                      }
-                      className="form-input bg-surface"
-                    >
-                      <option value="g">g</option>
-                      <option value="ml">ml</option>
-                    </select>
-                  </label>
-                </div>
-                <p className="text-xs text-muted">
-                  Informe os nutrientes referentes a 100 g/ml.
-                </p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {([
-                    ["calories", "Calorias (kcal)"],
-                    ["protein", "Proteína (g)"],
-                    ["carbs", "Carboidratos (g)"],
-                    ["fat", "Gorduras (g)"],
-                  ] as const).map(([key, label]) => (
-                    <label key={key}>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                    <label>
                       <span className="mb-1 block text-xs font-bold">
-                        {label}
+                        Quantidade no pote
                       </span>
                       <input
                         type="number"
-                        min={0}
+                        min={0.01}
                         max={10000}
                         step="any"
-                        value={manualFood[key]}
+                        value={manualFood.quantity}
                         onChange={(event) =>
                           setManualFood((current) => ({
                             ...current,
-                            [key]: event.target.value,
+                            quantity: event.target.value,
                           }))
                         }
                         className="form-input bg-surface"
                       />
                     </label>
-                  ))}
+                    <label>
+                      <span className="mb-1 block text-xs font-bold">
+                        Unidade
+                      </span>
+                      <select
+                        value={manualFood.unit}
+                        onChange={(event) =>
+                          setManualFood((current) => ({
+                            ...current,
+                            unit: event.target.value === "ml" ? "ml" : "g",
+                          }))
+                        }
+                        className="form-input bg-surface"
+                      >
+                        <option value="g">g</option>
+                        <option value="ml">ml</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p className="text-sm font-bold">Nutrientes por 100 g/ml</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {([
+                      ["calories", "Calorias (kcal)"],
+                      ["protein", "Proteína (g)"],
+                      ["carbs", "Carboidratos (g)"],
+                      ["fat", "Gorduras (g)"],
+                    ] as const).map(([key, label]) => (
+                      <label key={key}>
+                        <span className="mb-1 block text-xs font-bold">
+                          {label}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={10000}
+                          step="any"
+                          value={manualFood[key]}
+                          onChange={(event) =>
+                            setManualFood((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                          className="form-input bg-surface"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void addManualFood()}
+                    disabled={savingFood || items.length >= 50}
+                    className="min-h-12 w-full rounded-xl bg-[#52642f] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {savingFood
+                      ? "Salvando na base…"
+                      : "Salvar na base e adicionar"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void addManualFood()}
-                  disabled={savingFood || items.length >= 50}
-                  className="rounded-lg bg-[#52642f] px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
-                >
-                  {savingFood
-                    ? "Salvando na base…"
-                    : "Salvar na base e adicionar"}
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-          {aiMessage && (
-            <p role="status" className="mt-2 text-xs font-bold text-[#52642f]">
-              {aiMessage}
-            </p>
-          )}
-          {aiError && (
-            <div
-              role="alert"
-              className="mt-3 rounded-2xl border border-[#f2b8c8] bg-pink-soft p-3 text-sm text-[#9b2448]"
-            >
-              <strong className="block">A identificação por IA falhou</strong>
-              <span className="mt-1 block">{aiError}</span>
-              <span className="mt-1 block text-xs">
-                Tente outra foto com boa luz e a embalagem inteira visível.
+          <aside
+            aria-label="Ingredientes selecionados"
+            className="min-w-0 rounded-2xl border border-outline bg-page p-4 sm:p-5 lg:sticky lg:top-28"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-display text-lg font-black">No seu pote</h3>
+              <span className="rounded-full bg-surface px-3 py-1 text-sm font-bold">
+                {items.length}
               </span>
             </div>
-          )}
-          <div className="flex flex-col">
-            {(!!results.foods.length || !!results.nextCursor) && (
-              <div
-                ref={resultsScrollRef}
-                role="region"
-                aria-label="Lista de alimentos com rolagem"
-                tabIndex={0}
-                className="order-2 mt-3 max-h-80 space-y-2 overflow-y-auto overscroll-contain"
-              >
-                <ul aria-label="Resultados de alimentos" className="space-y-2">
-                  {results.foods.map((food) => {
-                    const complete = hasCompleteNutrition(food)
-                    return (
-                      <li key={food.id}>
+            {!items.length && (
+              <p className="mt-5 text-sm leading-relaxed text-muted">
+                Os alimentos adicionados aparecerão aqui.
+              </p>
+            )}
+            {!!items.length && (
+              <ul aria-label="Alimentos do pote" className="mt-5 space-y-3">
+                {items.map((item, index) => {
+                  const nutrition = calculateNutrition([item])
+                  return (
+                    <li
+                      key={item.key}
+                      className="rounded-2xl border border-outline bg-surface p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <strong className="block break-words text-sm">
+                            {item.food.name}
+                          </strong>
+                        </div>
                         <button
                           type="button"
-                          disabled={!complete || items.length >= 50}
-                          onClick={() => add(food)}
-                          aria-label={`Adicionar ${food.name} · ${food.source || "TBCA"}`}
-                          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-outline p-3 text-left transition hover:border-[#ef4f78] disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={() =>
+                            publish(
+                              items.filter((_, position) => position !== index),
+                            )
+                          }
+                          aria-label={`Remover ${item.food.name}`}
+                          className="grid size-11 shrink-0 place-items-center rounded-full bg-pink-soft text-[#b92e53]"
                         >
-                          <span className="min-w-0">
-                            <strong className="block break-words text-sm">
-                              {food.name}
-                            </strong>
-                            <span className="mt-1 block text-xs text-muted">
-                              {complete
-                                ? `${
-                                    food.source === "Manual"
-                                      ? "Base da comunidade"
-                                      : food.source || "TBCA"
-                                  } · Por 100 ${food.basisUnit || "g"}: ${display(food.calories)} kcal · P ${display(food.protein)} g · C ${display(food.carbs)} g · G ${display(food.fat)} g`
-                                : "Dados incompletos na base · preencha manualmente"}
-                            </span>
-                          </span>
-                          {complete && (
-                            <span className="shrink-0 text-[#ef4f78]">
-                              <Icon name="plus" />
-                            </span>
-                          )}
+                          <Icon name="close" size={16} />
                         </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-                {results.nextCursor && (
-                  <div
-                    ref={resultsEndRef}
-                    className="min-h-8 p-2 text-center text-xs text-muted"
-                  >
-                    {searching ? (
-                      <span
-                        role="status"
-                        className="inline-flex items-center gap-2"
-                      >
-                        <span
-                          aria-hidden="true"
-                          className="size-4 shrink-0 animate-spin rounded-full border-2 border-outline border-t-current text-[#52642f] motion-reduce:animate-none"
-                        />
-                        Carregando mais alimentos…
-                      </span>
-                    ) : !partialResults && !searchError ? (
-                      "Role para carregar mais alimentos"
-                    ) : null}
-                  </div>
-                )}
-              </div>
-            )}
-            {!!aiSuggestions.length && (
-              <div className="order-1 mt-4 rounded-2xl border border-[#cfc0f5] bg-purple-soft p-4">
-                <p className="text-xs font-extrabold uppercase tracking-wide text-[#6950a8]">
-                  Confirme o alimento antes de adicionar
-                </p>
-                <div className="mt-3 space-y-3">
-                  {aiSuggestions.map((aiSuggestion) => (
-                    <div
-                      key={aiSuggestion.food}
-                      className="rounded-xl bg-surface p-3"
-                    >
-                      <p className="text-sm font-black">{aiSuggestion.food}</p>
-                      <p className="mt-1 text-xs text-muted">
-                        {aiSuggestion.brand
-                          ? `Marca: ${aiSuggestion.brand}`
-                          : "Marca não identificada"}
-                      </p>
-                      <div className="mt-3 grid max-w-xs grid-cols-[minmax(0,1fr)_auto] gap-2">
-                        <label>
-                          <span className="mb-1 block text-xs font-bold">
-                            Quantidade
+                      </div>
+                      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+                        <label className="block">
+                          <span className="mb-1.5 block text-xs font-bold">
+                            Quantidade no pote
                           </span>
                           <input
                             type="number"
+                            aria-label={`Quantidade (${item.unit}) · ${item.food.name}`}
+                            name={`food_grams_${index}`}
+                            required
                             min={0.01}
                             max={10000}
                             step="any"
-                            value={aiSuggestion.quantity ?? ""}
+                            value={item.grams}
                             onChange={(event) =>
-                              setAiSuggestions((current) =>
-                                current.map((item) =>
-                                  item.food === aiSuggestion.food
-                                    ? {
-                                        ...item,
-                                        quantity: event.target.value
-                                          ? Number(event.target.value)
-                                          : undefined,
-                                      }
-                                    : item,
+                              publish(
+                                items.map((row, position) =>
+                                  position === index
+                                    ? { ...row, grams: event.target.value }
+                                    : row,
                                 ),
                               )
                             }
                             className="form-input bg-surface"
                           />
                         </label>
-                        <label>
-                          <span className="mb-1 block text-xs font-bold">
+                        <label className="block">
+                          <span className="mb-1.5 block text-xs font-bold">
                             Unidade
                           </span>
                           <select
-                            value={aiSuggestion.unit ?? "g"}
+                            aria-label={`Unidade da quantidade · ${item.food.name}`}
+                            value={item.unit}
                             onChange={(event) =>
-                              setAiSuggestions((current) =>
-                                current.map((item) =>
-                                  item.food === aiSuggestion.food
+                              publish(
+                                items.map((row, position) =>
+                                  position === index
                                     ? {
-                                        ...item,
+                                        ...row,
                                         unit:
                                           event.target.value === "ml"
                                             ? "ml"
                                             : "g",
                                       }
-                                    : item,
+                                    : row,
                                 ),
                               )
                             }
@@ -1371,136 +1505,23 @@ export default function FoodCalculator({
                           </select>
                         </label>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => acceptAiSuggestion(aiSuggestion)}
-                        disabled={
-                          items.length >= 50 ||
-                          !aiSuggestion.matchedFood ||
-                          !aiSuggestion.quantity
-                        }
-                        className="mt-3 rounded-lg bg-[#6950a8] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {!aiSuggestion.quantity
-                          ? "Informe a quantidade"
-                          : aiSuggestion.matchedFood
-                            ? "Aceitar e adicionar"
-                            : aiSuggestion.lookupComplete
-                              ? "Sem dados nutricionais"
-                              : "Buscando dados…"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={rejectAiSuggestion}
-                  className="mt-3 rounded-lg border border-[#cfc0f5] px-3 py-2 text-xs font-bold text-[#6950a8]"
-                >
-                  Recusar todas
-                </button>
-              </div>
+                      {nutrition && (
+                        <p className="mt-2 text-xs leading-relaxed text-muted">
+                          {display(nutrition.calories)} kcal
+                        </p>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
             )}
-          </div>
-          {!!items.length && (
-            <ul aria-label="Alimentos do pote" className="mt-5 space-y-3">
-              {items.map((item, index) => {
-                const nutrition = calculateNutrition([item])
-                return (
-                  <li key={item.key} className="rounded-2xl bg-page p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <strong className="block break-words text-sm">
-                          {item.food.name}
-                        </strong>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          publish(
-                            items.filter((_, position) => position !== index),
-                          )
-                        }
-                        aria-label={`Remover ${item.food.name}`}
-                        className="grid size-8 shrink-0 place-items-center rounded-full bg-surface text-[#b92e53]"
-                      >
-                        <Icon name="close" size={16} />
-                      </button>
-                    </div>
-                    <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold">
-                          Quantidade ({item.unit})
-                        </span>
-                        <input
-                          type="number"
-                          aria-label={`Quantidade (${item.unit}) · ${item.food.name}`}
-                          name={`food_grams_${index}`}
-                          required
-                          min={0.01}
-                          max={10000}
-                          step="any"
-                          value={item.grams}
-                          onChange={(event) =>
-                            publish(
-                              items.map((row, position) =>
-                                position === index
-                                  ? { ...row, grams: event.target.value }
-                                  : row,
-                              ),
-                            )
-                          }
-                          className="form-input bg-surface"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold">
-                          Unidade
-                        </span>
-                        <select
-                          aria-label={`Unidade da quantidade · ${item.food.name}`}
-                          value={item.unit}
-                          onChange={(event) =>
-                            publish(
-                              items.map((row, position) =>
-                                position === index
-                                  ? {
-                                      ...row,
-                                      unit:
-                                        event.target.value === "ml"
-                                          ? "ml"
-                                          : "g",
-                                    }
-                                  : row,
-                              ),
-                            )
-                          }
-                          className="form-input bg-surface"
-                        >
-                          <option value="g">g</option>
-                          <option value="ml">ml</option>
-                        </select>
-                      </label>
-                    </div>
-                    {nutrition && (
-                      <p className="mt-2 text-xs leading-relaxed text-muted">
-                        {display(nutrition.calories)} kcal · P{" "}
-                        {display(nutrition.protein)} g · C{" "}
-                        {display(nutrition.carbs)} g · G{" "}
-                        {display(nutrition.fat)} g
-                      </p>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-          {items.length >= 50 && (
-            <p role="status" className="mt-3 text-xs text-muted">
-              Limite de 50 alimentos por receita.
-            </p>
-          )}
-        </>
+            {items.length >= 50 && (
+              <p role="status" className="mt-3 text-xs text-muted">
+                Limite de 50 alimentos por receita.
+              </p>
+            )}
+          </aside>
+        </div>
       )}
     </section>
   )
