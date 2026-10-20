@@ -58,6 +58,18 @@ export const hasCompleteNutrition = (food) =>
       typeof value === "number" && Number.isFinite(value) && value >= 0,
   )
 
+/** @param {LocalFood} a @param {LocalFood} b */
+function compareFoodCalories(a, b) {
+  /** @param {LocalFood} food */
+  const calories = (food) =>
+    typeof food.calories === "number" && Number.isFinite(food.calories) && food.calories >= 0
+      ? food.calories
+      : Infinity
+  const first = calories(a)
+  const second = calories(b)
+  return first < second ? -1 : first > second ? 1 : 0
+}
+
 /** @param {FoodCatalog} catalog @param {string} query @param {number} [limit] @param {string} [source] */
 export function searchFoods(catalog, query, limit = 20, source = "all") {
   const term = normalize(query)
@@ -74,6 +86,7 @@ export function searchFoods(catalog, query, limit = 20, source = "all") {
       item.food.name.length / 10 +
       (hasCompleteNutrition(item.food) ? 0 : 1000)
     return (
+      compareFoodCalories(a.food, b.food) ||
       rank(a) - rank(b) ||
       a.food.name.localeCompare(b.food.name, "pt-BR") ||
       a.food.id.localeCompare(b.food.id)
@@ -172,6 +185,7 @@ export async function searchFoodsWithFallback(
   const local = searchFoods(catalog, query, limit, "TBCA")
   const api = await remote(query, limit).catch(() => ({ foods: [], total: 0 }))
   const foods = [...new Map([...api.foods, ...local.foods].map((food) => [food.id, food])).values()]
+    .sort(compareFoodCalories)
   return {
     foods: foods.slice(0, limit),
     total: foods.length,
