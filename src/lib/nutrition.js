@@ -279,7 +279,7 @@ export const foodDescriptions = (items) =>
       } de ${item.food.name}`,
   )
 
-/** @typedef {{foods: LocalFood[], total: number, source: string, fallback: boolean, nextCursor?: string | null, sourceDiagnostics?: Record<string, string>, providerTotals?: Record<string, number | null>}} FoodResults */
+/** @typedef {{foods: LocalFood[], total: number, source: string, fallback: boolean, nextCursor?: string | null, retryCursor?: string | null, sourceDiagnostics?: Record<string, string>, sourceWarnings?: Record<string, string>, providerTotals?: Record<string, number | null>}} FoodResults */
 
 /** @param {string} value */
 export function normalizeFoodBarcode(value) {
@@ -287,13 +287,14 @@ export function normalizeFoodBarcode(value) {
   return /^\d{8,14}$/.test(digits) ? digits : ""
 }
 
-/** @param {FoodCatalog} catalog @param {string} query @param {string} [cursor] @param {AbortSignal} [signal] @param {LocalFood[]} [previous] @returns {Promise<FoodResults>} */
+/** @param {FoodCatalog} catalog @param {string} query @param {string} [cursor] @param {AbortSignal} [signal] @param {LocalFood[]} [previous] @param {FoodResults} [previousPage] @returns {Promise<FoodResults>} */
 export async function searchFoodPage(
   catalog,
   query,
   cursor = "0,0",
   signal,
   previous = [],
+  previousPage,
 ) {
   if (normalize(query).length < 2)
     return {
@@ -333,13 +334,38 @@ export async function searchFoodPage(
     ].filter((food) => barcode || matchesFoodQuery(food, query)),
     query,
   )
+  const diagnostics = {
+    ...previousPage?.sourceDiagnostics,
+    ...api.sourceDiagnostics,
+  }
+  const sources = ["FatSecret", "Open Food Facts"]
+  /** @type {number[]} */
+  const next = String(api.nextCursor || "-1,-1")
+    .split(",")
+    .map(Number)
+  const failed = (previousPage?.retryCursor || "-1,-1").split(",").map(Number)
+  const requested = cursor.split(",").map(Number)
+  if (!api.sourceDiagnostics?.remote) delete diagnostics.remote
+  for (let i = 0; i < 2; i++) {
+    if (requested[i] < 0) continue
+    const status = api.sourceDiagnostics?.[sources[i]]
+    if (api.sourceDiagnostics?.remote || (status && status !== "ok")) {
+      failed[i] = next[i] >= 0 ? next[i] : requested[i]
+      next[i] = -1
+    } else failed[i] = -1
+  }
+  const retry = next.map((position, i) =>
+    failed[i] >= 0 ? failed[i] : position,
+  )
   return {
     ...api,
     foods,
     total: foods.length,
     source: "Todas",
     fallback: false,
-    nextCursor: barcode ? null : (api.nextCursor ?? null),
+    sourceDiagnostics: diagnostics,
+    nextCursor: barcode || next.every((n) => n < 0) ? null : next.join(","),
+    retryCursor: barcode || failed.every((n) => n < 0) ? null : retry.join(","),
   }
 }
 /** @param {string} query @param {number} limit @param {AbortSignal} [signal] */

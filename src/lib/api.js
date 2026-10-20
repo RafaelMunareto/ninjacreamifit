@@ -178,6 +178,10 @@ export async function saveProfile(name) {
 export async function saveSharedFood(food) {
   return request("saveFood", { food })
 }
+/** @param {import("../types").LocalFood} food @returns {Promise<import("../types").LocalFood>} */
+export async function updateSharedFood(food) {
+  return request("updateFood", { food })
+}
 /** @param {string} password */
 export async function setupAdmin(password) {
   await request("setup", { password })

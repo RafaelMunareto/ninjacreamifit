@@ -28,6 +28,8 @@ export interface LocalFood {
   calories: number | null
   barcode?: string
   basisUnit?: "g" | "ml"
+  servingAmount?: number
+  revision?: number
   traces?: NutrientKey[]
 }
 

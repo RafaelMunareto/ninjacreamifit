@@ -141,7 +141,8 @@ test("falha mantém dados e o cursor para tentar novamente; cancelamento não vi
       [food("FATSECRET:1", 50)],
     )
     assert.equal(result.foods.length, 1)
-    assert.equal(result.nextCursor, "2,-1")
+    assert.equal(result.nextCursor, null)
+    assert.equal(result.retryCursor, "2,-1")
     globalThis.fetch = async () => {
       throw new DOMException("cancelado", "AbortError")
     }
@@ -203,6 +204,75 @@ test("produto local e produto de nova página ficam antes de pratos que apenas c
     assert.equal(second.total, 4)
     assert.equal(second.nextCursor, null)
     assert.equal(first.foods.length, 2)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test("fonte com falha não bloqueia páginas saudáveis e só ela volta na retomada", async () => {
+  const original = globalThis.fetch
+  try {
+    const catalog = createFoodCatalog([])
+    globalThis.fetch = async () =>
+      Response.json({
+        foods: [food("FATSECRET:1", 50)],
+        nextCursor: "10,0",
+        sourceDiagnostics: {
+          FatSecret: "ok",
+          "Open Food Facts": "rate_limited",
+        },
+      })
+    const first = await searchFoodPage(catalog, "iogurte zero")
+    assert.equal(first.nextCursor, "10,-1")
+    assert.equal(first.retryCursor, "10,0")
+    globalThis.fetch = async (url) => {
+      assert.equal(
+        new URL(url, "https://test.example").searchParams.get("cursor"),
+        "10,-1",
+      )
+      return Response.json({
+        foods: [food("FATSECRET:2", 60)],
+        nextCursor: null,
+        sourceDiagnostics: { FatSecret: "ok" },
+      })
+    }
+    const next = await searchFoodPage(
+      catalog,
+      "iogurte zero",
+      first.nextCursor,
+      undefined,
+      first.foods,
+      first,
+    )
+    assert.equal(next.nextCursor, null)
+    assert.equal(next.retryCursor, "-1,0")
+    assert.equal(next.sourceDiagnostics["Open Food Facts"], "rate_limited")
+    globalThis.fetch = async (url) => {
+      assert.equal(
+        new URL(url, "https://test.example").searchParams.get("cursor"),
+        "-1,0",
+      )
+      return Response.json({
+        foods: [food("OFF:3", 40)],
+        nextCursor: null,
+        sourceDiagnostics: { "Open Food Facts": "ok" },
+      })
+    }
+    const retried = await searchFoodPage(
+      catalog,
+      "iogurte zero",
+      next.retryCursor,
+      undefined,
+      next.foods,
+      next,
+    )
+    assert.equal(retried.retryCursor, null)
+    assert.equal(retried.nextCursor, null)
+    assert.equal(retried.sourceDiagnostics["Open Food Facts"], "ok")
+    assert.deepEqual(
+      retried.foods.map((f) => f.id),
+      ["OFF:3", "FATSECRET:1", "FATSECRET:2"],
+    )
   } finally {
     globalThis.fetch = original
   }

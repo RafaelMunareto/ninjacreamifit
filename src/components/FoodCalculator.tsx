@@ -6,11 +6,6 @@ import {
   useState,
   type ChangeEvent,
 } from "react"
-import {
-  BarcodeFormat,
-  BrowserMultiFormatReader,
-  type IScannerControls,
-} from "@zxing/browser"
 import type { FoodReference, LocalFood, Nutrition } from "../types"
 import {
   calculateNutrition,
@@ -27,10 +22,11 @@ import {
   invalidateFoodCatalog,
 } from "../lib/nutrition.js"
 import { requestApi } from "../lib/http.js"
-import { saveSharedFood, errorMessage } from "../lib/api.js"
+import { saveSharedFood, updateSharedFood, errorMessage } from "../lib/api.js"
 import { createSpeechInput } from "../lib/speech-input.js"
 import { parseSpokenFood } from "../lib/voice-food.js"
 import Icon from "./Icon"
+import BarcodeScanner from "./BarcodeScanner"
 
 type FoodLine = {
   key: string
@@ -76,6 +72,8 @@ export default function FoodCalculator({
   const initial = useRef(initialItems).current
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [items, setItems] = useState<FoodLine[]>([])
+  const itemsRef = useRef(items)
+  itemsRef.current = items
   const source = "all"
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)
@@ -88,7 +86,10 @@ export default function FoodCalculator({
     })
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState("")
-  const [scanning, setScanning] = useState(false)
+  const [scanTarget, setScanTarget] = useState<"search" | "manual" | null>(null)
+  const scanning = scanTarget !== null
+  const [editingFood, setEditingFood] = useState<LocalFood | null>(null)
+  const [paginationStalled, setPaginationStalled] = useState(false)
   const [identifyingPhoto, setIdentifyingPhoto] = useState(false)
   const [aiMessage, setAiMessage] = useState("")
   const [aiError, setAiError] = useState("")
@@ -116,12 +117,9 @@ export default function FoodCalculator({
   const queryVersion = useRef(0)
   const resultsScrollRef = useRef<HTMLDivElement | null>(null)
   const resultsEndRef = useRef<HTMLDivElement | null>(null)
-  const manualFormRef = useRef<HTMLDivElement | null>(null)
-  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const manualFormRef = useRef<HTMLFieldSetElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const scanStreamRef = useRef<MediaStream | null>(null)
-  const scannerControlsRef = useRef<IScannerControls | null>(null)
   const speechRecognitionRef =
     useRef<ReturnType<typeof createSpeechInput> | null>(null)
   const voiceLookupRef = useRef<AbortController | null>(null)
@@ -194,6 +192,7 @@ export default function FoodCalculator({
     resultsScrollRef.current?.scrollTo({ top: 0 })
     let active = true
     setSearchError("")
+    setPaginationStalled(false)
     const valid = deferredQuery.trim().length >= 2
     const barcode = normalizeFoodBarcode(deferredQuery)
     // Foods already in the catalog must be selectable while providers load.
@@ -210,7 +209,8 @@ export default function FoodCalculator({
           .then((data) => {
             if (!active) return
             setResults(data)
-            if (barcode && !data.foods.length) openManualFood(barcode)
+            if (barcode && !data.foods.length && !manualFormRef.current)
+              openManualFood(barcode)
           })
           .catch(() => {
             if (active)
@@ -232,49 +232,49 @@ export default function FoodCalculator({
     }
   }, [catalog, deferredQuery, openManualFood])
 
-  const loadMore = useCallback(async () => {
-    if (
-      !catalog ||
-      searching ||
-      moreRequest.current ||
-      !results.nextCursor ||
-      query !== deferredQuery
-    )
-      return
-    const version = queryVersion.current
-    const controller = new AbortController()
-    moreRequest.current = controller
-    setSearching(true)
-    setSearchError("")
-    try {
-      const data = await searchFoodPage(
-        catalog,
-        deferredQuery,
-        results.nextCursor,
-        controller.signal,
-        results.foods,
-      )
-      if (version === queryVersion.current) {
-        setResults(data)
-        if (data.nextCursor === results.nextCursor)
-          setSearchError(
-            "A busca não avançou. Tente novamente para carregar mais alimentos.",
-          )
-      }
-    } catch (cause) {
+  const loadMore = useCallback(
+    async (retryFailed = false) => {
+      const cursor = retryFailed
+        ? results.retryCursor || results.nextCursor
+        : results.nextCursor
       if (
-        version === queryVersion.current &&
-        !(cause instanceof Error && cause.name === "AbortError")
+        !catalog ||
+        searching ||
+        moreRequest.current ||
+        !cursor ||
+        query !== deferredQuery
       )
-        setSearchError(errorMessage(cause))
-    } finally {
-      if (moreRequest.current === controller) moreRequest.current = null
-      if (version === queryVersion.current) setSearching(false)
-    }
-  }, [catalog, searching, results, query, deferredQuery])
-
-  const partialResults = Object.values(results.sourceDiagnostics || {}).some(
-    (status) => status !== "ok",
+        return
+      const version = queryVersion.current
+      const controller = new AbortController()
+      moreRequest.current = controller
+      setSearching(true)
+      setPaginationStalled(false)
+      try {
+        const data = await searchFoodPage(
+          catalog,
+          deferredQuery,
+          cursor,
+          controller.signal,
+          results.foods,
+          results,
+        )
+        if (version === queryVersion.current) {
+          setResults(data)
+          setPaginationStalled(!!data.nextCursor && data.nextCursor === cursor)
+        }
+      } catch (cause) {
+        if (
+          version === queryVersion.current &&
+          !(cause instanceof Error && cause.name === "AbortError")
+        )
+          setSearchError(errorMessage(cause))
+      } finally {
+        if (moreRequest.current === controller) moreRequest.current = null
+        if (version === queryVersion.current) setSearching(false)
+      }
+    },
+    [catalog, searching, results, query, deferredQuery],
   )
 
   useEffect(() => {
@@ -285,8 +285,7 @@ export default function FoodCalculator({
       !target ||
       !results.nextCursor ||
       searching ||
-      searchError ||
-      partialResults ||
+      paginationStalled ||
       query !== deferredQuery
     )
       return
@@ -307,8 +306,7 @@ export default function FoodCalculator({
     loadMore,
     results.nextCursor,
     searching,
-    searchError,
-    partialResults,
+    paginationStalled,
     query,
     deferredQuery,
   ])
@@ -318,6 +316,38 @@ export default function FoodCalculator({
       foodReferences(updated),
       foodDescriptions(updated),
       updated.length ? calculateNutrition(updated) : null,
+    )
+  }
+  const editFood = async (selected: LocalFood) => {
+    let food = selected
+    if (food.source === "Manual") {
+      try {
+        food = (await restoreApiFoods([food.id]))[0] || food
+      } catch (cause) {
+        setSearchError(errorMessage(cause))
+        return
+      }
+    }
+    const amount = food.servingAmount || 100
+    const value = (n: number | null) =>
+      n === null ? "" : String(Number(((n * amount) / 100).toFixed(8)))
+    setEditingFood(food)
+    manualFoodId.current =
+      food.source === "Manual" ? food.id : `CUSTOM:${crypto.randomUUID()}`
+    setManualFood({
+      name: food.name,
+      barcode: food.barcode || "",
+      quantity: String(amount),
+      unit: food.basisUnit || "g",
+      calories: value(food.calories),
+      protein: value(food.protein),
+      carbs: value(food.carbs),
+      fat: value(food.fat),
+    })
+    setManualOpen(true)
+    setSearchError("")
+    requestAnimationFrame(() =>
+      manualFormRef.current?.scrollIntoView({ block: "start" }),
     )
   }
   const addManualFood = async () => {
@@ -350,27 +380,49 @@ export default function FoodCalculator({
       name: manualFood.name.trim(),
       category: "Alimento informado pelo usuário",
       source: "Manual",
-      calories: values[1],
-      protein: values[2],
-      carbs: values[3],
-      fat: values[4],
+      calories: (values[1] * 100) / values[0],
+      protein: (values[2] * 100) / values[0],
+      carbs: (values[3] * 100) / values[0],
+      fat: (values[4] * 100) / values[0],
       barcode:
         normalizeFoodBarcode(manualFood.barcode) || manualFood.barcode.trim(),
       basisUnit: manualFood.unit,
+      servingAmount: values[0],
+      ...(editingFood?.source === "Manual"
+        ? { revision: editingFood.revision || 1 }
+        : {}),
     }
     foodSaveLock.current = true
     setSavingFood(true)
     onBusyChange?.(true)
     setSearchError("")
     try {
-      const savedFood = await saveSharedFood(food)
-      add(savedFood, {
-        food: food.name,
-        brand: "",
-        quantity: values[0],
-        unit: manualFood.unit,
-        matchedFood: food,
-      })
+      const updating = editingFood?.source === "Manual"
+      const savedFood = await (updating
+        ? updateSharedFood(food)
+        : saveSharedFood(food))
+      if (editingFood) {
+        publish(
+          itemsRef.current.map((row) =>
+            row.food.id === editingFood.id
+              ? { ...row, food: savedFood, unit: savedFood.basisUnit || "g" }
+              : row,
+          ),
+        )
+        setResults((current) => ({
+          ...current,
+          foods: current.foods.map((item) =>
+            item.id === editingFood.id ? savedFood : item,
+          ),
+        }))
+      } else
+        add(savedFood, {
+          food: food.name,
+          brand: "",
+          quantity: values[0],
+          unit: manualFood.unit,
+          matchedFood: food,
+        })
       manualFoodId.current = `CUSTOM:${crypto.randomUUID()}`
       setManualFood({
         name: "",
@@ -383,10 +435,13 @@ export default function FoodCalculator({
         fat: "",
       })
       setManualOpen(false)
+      setEditingFood(null)
       setFoodNotice(
-        savedFood.barcode
-          ? "Alimento salvo na base com o código de barras."
-          : "Alimento salvo na base e disponível nas próximas buscas.",
+        updating
+          ? "Alimento atualizado na base. As quantidades do seu pote foram mantidas."
+          : savedFood.barcode
+            ? "Alimento salvo na base com o código de barras."
+            : "Alimento salvo na base e disponível nas próximas buscas.",
       )
       invalidateFoodCatalog()
       void loadFoodCatalog()
@@ -533,12 +588,12 @@ export default function FoodCalculator({
   const voiceWaiting =
     voicePhase === "starting" || voicePhase === "stopping" || processingVoice
   const add = (food: LocalFood, suggestion?: AiSuggestion) => {
-    if (items.length >= 50 || !hasCompleteNutrition(food)) return
-    const quantity = suggestion?.quantity ?? 100
+    if (itemsRef.current.length >= 50 || !hasCompleteNutrition(food)) return
+    const quantity = suggestion?.quantity ?? food.servingAmount ?? 100
     const unit = suggestion?.unit ?? food.basisUnit ?? "g"
     publish([
       { key: crypto.randomUUID(), food, grams: String(quantity), unit },
-      ...items,
+      ...itemsRef.current,
     ])
     if (suggestion)
       setAiSuggestions((current) =>
@@ -547,66 +602,14 @@ export default function FoodCalculator({
     setQuery("")
   }
 
-  const scanBarcode = async () => {
-    const video = videoRef.current
-    if (!video) return
-    setSearchError("")
-    setScanning(true)
-    try {
-      const hints = new Map<number, unknown>([
-        [3, true],
-        [
-          2,
-          [
-            BarcodeFormat.EAN_13,
-            BarcodeFormat.EAN_8,
-            BarcodeFormat.UPC_A,
-            BarcodeFormat.UPC_E,
-            BarcodeFormat.CODE_128,
-            BarcodeFormat.CODE_39,
-            BarcodeFormat.ITF,
-          ],
-        ],
-      ]) as never
-      const reader = new BrowserMultiFormatReader(hints, {
-        delayBetweenScanAttempts: 100,
-        delayBetweenScanSuccess: 500,
-      })
-      scannerControlsRef.current = await reader.decodeFromConstraints(
-        {
-          audio: false,
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        },
-        video,
-        (result, _error, controls) => {
-          const value = result?.getText().trim()
-          if (!value) return
-          controls.stop()
-          scannerControlsRef.current = null
-          scanStreamRef.current?.getTracks().forEach((track) => track.stop())
-          scanStreamRef.current = null
-          setQuery(value)
-          setScanning(false)
-        },
-      )
-    } catch {
-      scannerControlsRef.current = null
-      setSearchError(
-        "Não foi possível acessar a câmera. Confira a permissão ou digite o código manualmente.",
-      )
-      setScanning(false)
-    }
-  }
-  const closeScanner = () => {
-    scannerControlsRef.current?.stop()
-    scannerControlsRef.current = null
-    scanStreamRef.current?.getTracks().forEach((track) => track.stop())
-    scanStreamRef.current = null
-    setScanning(false)
+  const scanBarcode = () => setScanTarget("search")
+  const closeScanner = () => setScanTarget(null)
+  const readBarcode = (barcode: string) => {
+    if (scanTarget === "manual") {
+      setManualFood((current) => ({ ...current, barcode }))
+      setFoodNotice("Código de barras preenchido pela câmera.")
+    } else setQuery(barcode)
+    closeScanner()
   }
   const identifyFoodPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -762,6 +765,9 @@ export default function FoodCalculator({
           : "rounded-3xl border border-outline bg-surface p-4 sm:p-5"
       }
     >
+      {scanning && (
+        <BarcodeScanner onScan={readBarcode} onClose={closeScanner} />
+      )}
       {!embedded && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-display text-xl font-black">
@@ -949,27 +955,6 @@ export default function FoodCalculator({
                 </div>
               </div>
             )}
-            <div
-              className={`relative mt-3 overflow-hidden rounded-2xl bg-black ${
-                scanning ? "" : "hidden"
-              }`}
-            >
-              <video
-                ref={videoRef}
-                muted
-                playsInline
-                className="aspect-video w-full object-cover"
-                aria-label="Câmera para leitura do código de barras"
-              />
-              <div className="pointer-events-none absolute inset-x-[12%] top-1/2 h-20 -translate-y-1/2 rounded-xl border-2 border-[#b8e46c] shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
-              <button
-                type="button"
-                onClick={closeScanner}
-                className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-2 text-xs font-bold text-white"
-              >
-                Fechar câmera
-              </button>
-            </div>
             {identifyingPhoto && (
               <div
                 role="status"
@@ -1047,28 +1032,40 @@ export default function FoodCalculator({
                       }`
                     : searching
                       ? "Buscando alimento…"
-                      : results.nextCursor
+                      : results.nextCursor || results.retryCursor
                         ? "A busca ainda tem páginas para consultar."
                         : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
                 </p>
               )}
-            {!searching &&
-              results.nextCursor &&
-              (partialResults || searchError) && (
-                <div className="mt-3 rounded-2xl border border-outline bg-yellow-soft p-3 text-sm text-[#52642f]">
-                  <p role="status">
-                    Algumas bases de alimentos estão temporariamente
-                    indisponíveis. A lista ainda pode estar incompleta.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void loadMore()}
-                    className="mt-2 rounded-full border border-current px-4 py-2 text-xs font-extrabold"
-                  >
-                    Tentar busca novamente
-                  </button>
-                </div>
-              )}
+            {results.sourceWarnings?.FatSecret ===
+              "fatsecret_scope_not_authorized_using_legacy" && (
+              <p
+                role="status"
+                className="mt-3 rounded-xl bg-yellow-soft p-3 text-sm text-muted"
+              >
+                O acesso à base brasileira do FatSecret foi recusado para esta
+                chave. Algumas marcas podem não aparecer.
+              </p>
+            )}
+            {!searching && (results.retryCursor || paginationStalled) && (
+              <div className="mt-3 rounded-2xl border border-outline bg-yellow-soft p-3 text-sm text-[#52642f]">
+                <p role="status">
+                  {paginationStalled
+                    ? "Não foi possível continuar a busca. Os alimentos já encontrados continuam disponíveis."
+                    : "Uma fonte não respondeu. Os alimentos já encontrados continuam disponíveis."}
+                  {results.nextCursor && !paginationStalled
+                    ? " A rolagem continua nas outras fontes."
+                    : " Você pode tentar consultar a fonte novamente."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void loadMore(true)}
+                  className="mt-2 rounded-full border border-current px-4 py-2 text-xs font-extrabold"
+                >
+                  Tentar busca novamente
+                </button>
+              </div>
+            )}
             {aiMessage && (
               <p
                 role="status"
@@ -1105,13 +1102,16 @@ export default function FoodCalculator({
                     {results.foods.map((food) => {
                       const complete = hasCompleteNutrition(food)
                       return (
-                        <li key={food.id}>
+                        <li
+                          key={food.id}
+                          className="rounded-2xl border border-outline bg-surface"
+                        >
                           <button
                             type="button"
                             disabled={!complete || items.length >= 50}
                             onClick={() => add(food)}
                             aria-label={`Adicionar ${food.name} · ${food.source || "TBCA"}`}
-                            className="flex w-full items-center justify-between gap-4 rounded-2xl border border-outline bg-surface p-4 text-left transition hover:border-[#ef4f78] hover:bg-pink-soft/30 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex w-full items-center justify-between gap-4 rounded-2xl p-4 text-left transition hover:bg-pink-soft/30 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <span className="min-w-0 flex-1">
                               <strong className="block break-words text-sm">
@@ -1123,7 +1123,7 @@ export default function FoodCalculator({
                                       food.source === "Manual"
                                         ? "Base da comunidade"
                                         : food.source || "TBCA"
-                                    } · ${display(food.calories)} kcal / 100 ${food.basisUnit || "g"}`
+                                    } · ${display(food.calories === null ? null : (food.calories * (food.servingAmount || 100)) / 100)} kcal / ${food.servingAmount || 100} ${food.basisUnit || "g"}`
                                   : "Dados incompletos na base · preencha manualmente"}
                               </span>
                             </span>
@@ -1132,6 +1132,15 @@ export default function FoodCalculator({
                                 <Icon name="plus" />
                               </span>
                             )}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={savingFood}
+                            onClick={() => editFood(food)}
+                            aria-label={`Editar alimento ${food.name}`}
+                            className="mx-4 mb-2 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-[#52642f] disabled:opacity-50"
+                          >
+                            <Icon name="edit" size={16} /> Editar na base
                           </button>
                         </li>
                       )
@@ -1153,7 +1162,7 @@ export default function FoodCalculator({
                           />
                           Carregando mais alimentos…
                         </span>
-                      ) : !partialResults && !searchError ? (
+                      ) : !paginationStalled ? (
                         "Role para carregar mais alimentos"
                       ) : null}
                     </div>
@@ -1275,9 +1284,25 @@ export default function FoodCalculator({
             >
               <button
                 type="button"
+                disabled={savingFood}
                 onClick={() => {
-                  if (manualOpen) setManualOpen(false)
-                  else openManualFood(normalizeFoodBarcode(query))
+                  if (manualOpen) {
+                    setManualOpen(false)
+                    if (editingFood) {
+                      setEditingFood(null)
+                      manualFoodId.current = `CUSTOM:${crypto.randomUUID()}`
+                      setManualFood({
+                        name: "",
+                        barcode: "",
+                        quantity: "100",
+                        unit: "g",
+                        calories: "",
+                        protein: "",
+                        carbs: "",
+                        fat: "",
+                      })
+                    }
+                  } else openManualFood(normalizeFoodBarcode(query))
                 }}
                 className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#52642f]"
                 aria-expanded={manualOpen}
@@ -1285,30 +1310,55 @@ export default function FoodCalculator({
                 {manualOpen ? "− Fechar cadastro" : "+ Cadastrar alimento"}
               </button>
               {manualOpen && (
-                <div
+                <fieldset
                   ref={manualFormRef}
                   role="group"
+                  disabled={savingFood}
                   aria-label="Cadastro manual de alimento"
-                  className="mt-5 scroll-mt-24 space-y-5"
+                  className="mt-5 min-w-0 scroll-mt-24 space-y-5"
                 >
-                  <label className="block">
-                    <span className="mb-1 block text-xs font-bold">
-                      Código de barras · opcional
-                    </span>
-                    <input
-                      value={manualFood.barcode}
-                      onChange={(event) =>
-                        setManualFood((current) => ({
-                          ...current,
-                          barcode: event.target.value,
-                        }))
-                      }
-                      inputMode="numeric"
-                      maxLength={14}
-                      pattern="[0-9]{8,14}"
-                      className="form-input"
-                    />
-                  </label>
+                  {editingFood && (
+                    <div>
+                      <h3 className="font-display text-lg font-black">
+                        Editar alimento
+                      </h3>
+                      {editingFood.source !== "Manual" && (
+                        <p className="mt-1 text-sm text-muted">
+                          A correção será salva como um alimento na base da
+                          comunidade.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="block min-w-0 flex-1 basis-48">
+                      <span className="mb-1 block text-xs font-bold">
+                        Código de barras · opcional
+                      </span>
+                      <input
+                        value={manualFood.barcode}
+                        onChange={(event) =>
+                          setManualFood((current) => ({
+                            ...current,
+                            barcode: event.target.value,
+                          }))
+                        }
+                        inputMode="numeric"
+                        maxLength={14}
+                        pattern="[0-9]{8,14}"
+                        className="form-input"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setScanTarget("manual")}
+                      disabled={savingFood}
+                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-outline bg-surface px-4 py-3 text-sm font-bold disabled:opacity-50"
+                      aria-label="Ler código de barras pela câmera"
+                    >
+                      <Icon name="camera" size={18} /> Ler código
+                    </button>
+                  </div>
                   <label className="block">
                     <span className="mb-1 block text-xs font-bold">
                       Nome do alimento
@@ -1328,7 +1378,7 @@ export default function FoodCalculator({
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                     <label>
                       <span className="mb-1 block text-xs font-bold">
-                        Quantidade no pote
+                        Porção do rótulo
                       </span>
                       <input
                         type="number"
@@ -1350,6 +1400,7 @@ export default function FoodCalculator({
                         Unidade
                       </span>
                       <select
+                        aria-label="Unidade da porção"
                         value={manualFood.unit}
                         onChange={(event) =>
                           setManualFood((current) => ({
@@ -1364,7 +1415,9 @@ export default function FoodCalculator({
                       </select>
                     </label>
                   </div>
-                  <p className="text-sm font-bold">Nutrientes por 100 g/ml</p>
+                  <p className="text-sm font-bold">
+                    Nutrientes em {manualFood.quantity || "…"} {manualFood.unit}
+                  </p>
                   <div className="grid grid-cols-2 gap-4">
                     {([
                       ["calories", "Calorias (kcal)"],
@@ -1396,14 +1449,18 @@ export default function FoodCalculator({
                   <button
                     type="button"
                     onClick={() => void addManualFood()}
-                    disabled={savingFood || items.length >= 50}
+                    disabled={
+                      savingFood || (!editingFood && items.length >= 50)
+                    }
                     className="min-h-12 w-full rounded-xl bg-[#52642f] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
                   >
                     {savingFood
                       ? "Salvando na base…"
-                      : "Salvar na base e adicionar"}
+                      : editingFood
+                        ? "Salvar alterações na base"
+                        : "Salvar na base e adicionar"}
                   </button>
-                </div>
+                </fieldset>
               )}
             </div>
           </div>
@@ -1450,6 +1507,15 @@ export default function FoodCalculator({
                           <Icon name="close" size={16} />
                         </button>
                       </div>
+                      <button
+                        type="button"
+                        disabled={savingFood}
+                        onClick={() => editFood(item.food)}
+                        aria-label={`Editar alimento selecionado ${item.food.name}`}
+                        className="mt-1 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-[#52642f] disabled:opacity-50"
+                      >
+                        <Icon name="edit" size={16} /> Editar alimento
+                      </button>
                       <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
                         <label className="block">
                           <span className="mb-1.5 block text-xs font-bold">
