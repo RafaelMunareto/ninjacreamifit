@@ -1,30 +1,22 @@
-import foodHandler from "./foods.js"
 import { loadEnv } from "vite"
-import { resolve } from "node:path"
-import { createFileStorage } from "./storage.js"
-import { createService, parseAdminCredential } from "./service.js"
-import { createHttpHandler } from "./http.js"
+import { createRepassafacilProxy } from "./repassafacil-proxy.js"
 
 export default function creamiServer() {
   return {
-    name: "creami-shared-development-server",
+    name: "creami-repassafacil-api",
     configureServer(server) {
-      const environment = loadEnv(server.config.mode, server.config.root, "")
-      const service = createService(
-        createFileStorage(resolve(server.config.root, ".data/development")),
-        {
-          initialAdmin: parseAdminCredential(
-            environment.CREAMI_ADMIN_CREDENTIAL,
-          ),
-          allowSetup: true,
-        },
-      )
-      const handler = createHttpHandler(() => service, { secureCookies: false })
+      const environment = {
+        ...process.env,
+        ...loadEnv(server.config.mode, server.config.root, ""),
+      }
+      environment.REPASSAFACIL_API_URL ||= "http://127.0.0.1:5075"
+      const routes = new Map(["creami", "image", "foods", "food-ai", "food-catalog"].map(name => {
+        const path = `/api/${name}`
+        return [path, createRepassafacilProxy(path, { environment })]
+      }))
       server.middlewares.use((request, response, next) => {
-        const pathname = request.url?.split("?")[0]
-        if (pathname === "/api/foods") void foodHandler(request, response)
-        else if (pathname === "/api/creami" || pathname === "/api/image")
-          void handler(request, response)
+        const handler = routes.get(request.url?.split("?")[0])
+        if (handler) void handler(request, response)
         else next()
       })
     },

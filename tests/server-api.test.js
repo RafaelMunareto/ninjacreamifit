@@ -5,9 +5,9 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { randomBytes, randomUUID } from "node:crypto"
-import { createFileStorage } from "../server/storage.js"
-import { createService, makeAdminCredential } from "../server/service.js"
-import { createHttpHandler } from "../server/http.js"
+import { createFileStorage } from "../scripts/legacy-server/storage.js"
+import { createService, makeAdminCredential } from "../scripts/legacy-server/service.js"
+import { createHttpHandler } from "../scripts/legacy-server/http.js"
 
 const input = {
   title: "Coco compartilhado",

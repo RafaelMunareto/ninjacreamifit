@@ -1,112 +1,33 @@
 # Ninja CREAMi Fit
 
-React + Vite com uma API JavaScript e um banco **SQLite** no mesmo projeto da Vercel. Receitas, fotos e avaliações ficam no servidor e são compartilhadas entre aparelhos.
+Site React + Vite. A API e o armazenamento foram migrados para o projeto **RepassaFacil.API**, em `../repassafacil-api/Creami/`: receitas, fotos, perfis, favoritos, notas, administração, TBCA, IBGE, Open Food Facts, FatSecret e identificação de alimentos por foto.
 
-## Como funciona
-
-- A pessoa informa seu nome e envia a receita, sem criar conta ou senha.
-- O site lembra a identificação do autor no navegador. **Minhas receitas** permite editar e excluir suas próprias publicações.
-- O catálogo é compartilhado. Outros visitantes veem novas receitas e alterações ao abrir a página; páginas abertas atualizam a cada 15 segundos e ao voltar para a aba.
-- Proteína, carboidratos, gorduras e calorias são obrigatórios, inclusive na edição. Campo vazio não equivale a zero.
-- Favoritos pertencem ao perfil. Cada perfil pode dar uma nota por receita e alterar essa nota.
-- A administração com senha pode editar e excluir qualquer receita e alterar os totais de avaliações.
-
-## Alimentos e cálculo por peso
-
-No formulário, a pessoa busca um alimento na **TBCA local**, com consulta complementar à API IBGE quando não houver resultado com os quatro nutrientes completos, escolhe o item e informa seu peso em gramas. Calorias, proteínas, carboidratos e gorduras do pote são somados automaticamente. Os alimentos e pesos são preservados para a edição posterior; o preenchimento manual continua disponível.
-
-A busca tenta primeiro `public/data/tbca-foods-v1.json`, carregado somente ao abrir o formulário. Se não encontrar alimento com macros completos, consulta `/api/foods?q=...&limit=20`, que usa os dados IBGE do repositório no servidor do próprio site. Não exige conta, chave ou hospedagem PHP/Laravel. A busca TBCA e o cálculo por peso funcionam sem rede após carregar a tabela; consultar a API complementar exige conexão. Publicar receitas e ver as atualizações de outros aparelhos continuam exigindo conexão com a API do site.
-
-O arquivo contém **5.668 alimentos**, sendo **5.654 com os quatro valores necessários ao cálculo**. A origem é o [arquivo alimentos.txt de raul-rznd](https://github.com/raul-rznd/web-scraping-tbca/blob/main/alimentos.txt), uma extração da Tabela Brasileira de Composição de Alimentos. A cópia incluída registra o commit de origem e o SHA-256 do conteúdo original. O arquivo original tem cerca de 17,5 MB; a versão reduzida do site tem cerca de 1,17 MB e mantém apenas identificação, descrição, grupo e os nutrientes utilizados.
-
-Os valores são por **100 g**. A importação usa energia em **kcal**, proteína em g, **carboidrato total** em g e lipídios em g; kcal não é confundido com kJ e mililitros não são convertidos em gramas. Valores `NA`, ausentes ou contraditórios ficam desconhecidos, e esses alimentos são identificados como incompletos. Registros repetidos com valores idênticos são consolidados. `tr` é preservado como indicador de traços, tratado como aproximadamente zero no cálculo e informado na tela. O arredondamento ocorre somente após a soma dos ingredientes.
-
-Para regenerar a cópia local a partir da versão de origem fixada no script:
+O cliente compartilhado em `src/lib/http.js` envia cookies e trata erros de todas as chamadas. O site chama `/api/creami`, `/api/image`, `/api/foods`, `/api/food-catalog` e `/api/food-ai`. As funções em `api/` somente encaminham as chamadas ao Repassa Fácil. O proxy mantém o cookie HttpOnly administrativo no domínio do site. As regras e as chaves privadas ficam no backend .NET.
 
 ```sh
-node scripts/import-tbca.mjs
-# Ou importar um arquivo já baixado, sem rede:
-node scripts/import-tbca.mjs /caminho/alimentos.txt
+npm install
+npm run dev:api # em outro terminal; usa a configuração privada do Repassa Fácil
+npm run dev
+npm run typecheck
+npm test
+npm run build
 ```
 
-O SQLite de receitas usa a versão 2 do esquema para guardar os códigos TBCA/IBGE e os pesos. A versão anterior do banco continua sendo lida e é atualizada na próxima gravação, preservando receitas, perfis, notas e senha. A tabela pública de alimentos não contém dados dos usuários.
+No desenvolvimento, o proxy usa `http://127.0.0.1:5075`. Para outro host, configure `REPASSAFACIL_API_URL` em `.env.local` e reinicie o Vite. Em produção, o proxy usa `https://repassafacil-api.onrender.com` por padrão. `REPASSAFACIL_API_URL` permite trocar esse destino. As rotas CREAMi precisam estar publicadas nessa API. A URL deve conter somente a origem HTTPS do Repassa Fácil, sem `/api`. O frontend continua com sua chave pública `VITE_CLERK_PUBLISHABLE_KEY`; chaves privadas de Clerk, FatSecret, IA e banco pertencem ao Repassa Fácil.
 
-## Armazenamento e API
+O catálogo de alimentos vem da API e é guardado no cache do navegador. A busca local e o cálculo por peso continuam disponíveis depois de carregar a tabela. A consulta remota e a publicação de receitas exigem conexão. Os códigos e pesos dos alimentos são preservados. A busca combina as fontes sem duplicar códigos retornados localmente e pela API.
 
-`api/creami.js` e `api/image.js` são Vercel Functions. `server/service.js` valida os dados e a autoria no servidor. O cliente em `src/lib/api.js` envia as operações pela API, sem gravar receitas no IndexedDB.
+O cliente conserva a identificação de aparelho e a migração idempotente do antigo IndexedDB. O backend .NET preserva o mesmo contrato, hashes de autoria e identificação Clerk. A troca de backend não permite editar a receita de outro autor nem recupera uma identificação de aparelho apagada.
 
-`server/sqlite.js` usa **sql.js (SQLite em WebAssembly)** para ler e gravar um arquivo SQLite real, com tabelas para receitas, perfis, notas, favoritos, importações e credencial administrativa. Macros e calorias são colunas numéricas obrigatórias. As gravações usam transações e parâmetros SQL; as relações têm chaves e restrições. O banco e as credenciais nunca são enviados ao frontend nem colocados em `public/`.
+A documentação de configuração, migração e operação está em [repassafacil-api/docs/ninja-creami.md](../repassafacil-api/docs/ninja-creami.md).
 
-Em produção, `server/storage.js` persiste o arquivo SQLite em um **Vercel Blob privado** conectado ao projeto; fotos ficam em objetos separados. A API carrega o banco para executar a operação e só confirma a gravação depois de persistir o arquivo. Leituras usam `useCache: false`; atualizações condicionais com ETag evitam que gravações simultâneas sobrescrevam outras alterações e a API repete a operação quando há conflito. Referências: [sql.js](https://github.com/sql-js/sql.js), [SDK Vercel Blob](https://vercel.com/docs/vercel-blob/using-blob-sdk).
-
-Novos conjuntos usam `creami/<ambiente>/catalog.sqlite`. Na migração do servidor existente, a chave histórica `catalog.json` é mantida para preservar a atualização atômica e impedir perda de gravações que estejam em andamento. Seu conteúdo passa a ser **SQLite binário**, com tipo `application/vnd.sqlite3`, independentemente da extensão antiga. Antes da conversão, uma cópia privada do JSON original é preservada em `backups/before-sqlite-<hash>.json`. Receitas, perfis, favoritos, avaliações, histórico de importação e senha são mantidos.
-
-O catálogo inicial é inserido somente na primeira gravação. Nova publicação do código não reinicia os dados. Ambientes Preview usam outro prefixo; `CREAMI_DATASET` permite escolher um conjunto isolado explicitamente.
-
-Em desenvolvimento com Vite, a mesma API persiste em `.data/development/catalog.sqlite`, no servidor local. Um `catalog.json` anterior é lido automaticamente e permanece intacto como cópia após a primeira gravação em SQLite. Esse diretório é ignorado pelo Git e pela publicação. Vercel Functions sempre persistem o SQLite no Blob e retornam erro se ele não estiver conectado; não existe fallback silencioso para gravação no aparelho.
-
-O SQLite roda na API do próprio projeto. Um banco executado apenas no navegador seria individual por aparelho. O disco local das funções da Vercel é temporário, por isso a cópia persistente fica no Blob. Essa implementação regrava o arquivo completo em cada alteração e atende um catálogo pequeno; um serviço SQL dedicado é mais adequado para bancos grandes ou muitas gravações concorrentes.
-
-O navegador guarda somente um identificador privado aleatório do autor. O servidor guarda seu hash, e o nome exibido não concede acesso às receitas de outra pessoa. Limpar os dados do navegador remove essa identificação, mas não exclui as receitas já publicadas no servidor. Acesso de um mesmo autor em outro aparelho exige futuramente vincular o perfil a uma conta.
-
-## Migração dos dados anteriores
-
-Ao abrir a versão nova no endereço em que criou suas receitas, o cliente consulta o banco antigo em modo de leitura e envia automaticamente as receitas do perfil para o servidor, incluindo fotos. Favoritos e notas próprias também são migrados. A importação é idempotente: repetir uma tentativa não duplica receitas nem recria publicações já excluídas.
-
-O banco antigo permanece intacto como cópia de segurança. Hashes e senhas da administração local nunca são enviados pelo navegador. Totais administrativos antigos não são aceitos de clientes sem autorização; apenas a própria nota do autor pode ser migrada.
-
-## Administração online
-
-A senha inicial é configurada no servidor pela variável secreta `CREAMI_ADMIN_CREDENTIAL`, que contém o derivado PBKDF2-HMAC-SHA-256 (600.000 iterações) e salt aleatório. Ela inicializa apenas um catálogo novo. Senhas alteradas pelo painel ficam no armazenamento privado e têm precedência sobre esse valor inicial em publicações futuras.
-
-O acesso usa um cookie HttpOnly, SameSite=Strict e Secure na Vercel, com validade de oito horas. **Sair e voltar ao site** encerra o acesso. Alterar a senha invalida as sessões anteriores. A criação livre de senha administrativa pela interface é permitida apenas no servidor de desenvolvimento.
-
-A senha temporária gerada para o responsável fica em `.admin-access.local`, um arquivo privado, excluído do Git e da publicação. Entre no painel, altere a senha e guarde-a. Não publique esse arquivo.
-
-Ao alterar apenas a receita, as avaliações são preservadas. Ao alterar explicitamente média ou quantidade, as avaliações existentes são incorporadas ao consolidado; novas avaliações passam a ser contadas à parte.
-
-## Desenvolvimento e publicação
+O exportador mantém uma cópia privada do catálogo e das fotos antes da migração:
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm dev
-pnpm typecheck
-pnpm test
-pnpm build
+node scripts/export-repassafacil.mjs --source=local --output=../repassafacil-api/.creami-migration/development.json
+node scripts/export-repassafacil.mjs --source=blob --dataset=production --env-file=.env.migration.local --output=../repassafacil-api/.creami-migration/production.json
 ```
 
-Na Vercel, conecte um Blob com acesso **Private** ao projeto. A conexão configura `BLOB_READ_WRITE_TOKEN` ou `BLOB_STORE_ID` com OIDC. Configure `CREAMI_ADMIN_CREDENTIAL` como Secret e publique o projeto inteiro, incluindo `api/` e `server/`; publicar apenas `dist/` não inclui a API.
+Os arquivos em `scripts/legacy-server/` são usados somente para ler o formato anterior e testar compatibilidade; não são usados pelas funções nem pelo Vite. As bases em `public/data/` são cópias históricas usadas nesses testes. As bases ativas e os importadores estão no backend, em `Creami/Data/` e `Creami/Tools/`. O banco antigo permanece intacto como backup.
 
-```sh
-vercel link --project ninjacreamifit --scope rafaelmunaretos-projects
-vercel deploy
-vercel deploy --prod
-```
-
-Não coloque tokens ou a credencial de administrador em variáveis `VITE_*`, pois elas são enviadas ao navegador.
-
-Os testes cobrem o fluxo HTTP entre perfis independentes, autorização, fotos, votos, migração, gravações concorrentes e persistência após reiniciar o servidor. A migração para SQLite verifica também a integridade do arquivo, consultas SQL relacionais, preservação dos dados antigos e rejeição de gravações inválidas ou desatualizadas. Os testes da API antiga permanecem para compatibilidade com dados anteriores.
-
-### Base IBGE adicional
-
-Incluímos os dados do [tabela-taco-api](https://github.com/renandspedrosa/tabela-taco-api), fixados no commit `c5eccf85aabf7bfaea9f9033e38b0a74665770c4`. Apesar do nome do repositório, essa versão contém IBGE, não a tabela TACO/UNICAMP. Não requer Laravel, conta ou API externa: `public/data/ibge-foods-v1.json` é lido pela função `/api/foods` no servidor somente quando necessário.
-
-São 1.971 combinações de alimento/preparação, com 1.312 registros completos para cálculo. Valores ausentes (`-`, `NA`, vazios) permanecem desconhecidos e impedem selecionar o registro para cálculo; zero explícito é aceito. Cada preparação tem identificador próprio (`IBGE:<código>:<preparação>`), mantendo os códigos TBCA anteriores. Valores por 100 g da parte comestível, conforme a [publicação do IBGE](https://biblioteca.ibge.gov.br/visualizacao/livros/liv50002.pdf); cada base mantém seus valores separados.
-
-Para regenerar: `node scripts/import-ibge.mjs` (ou forneça o caminho do SQL original como argumento). O importador lê somente literais dos INSERTs, sem executar o SQL, e registra o SHA-256 da fonte no JSON. O SQL bruto não é distribuído no aplicativo.
-
-### Busca em todas as fontes
-
-A busca consulta TBCA, IBGE, Open Food Facts e FatSecret simultaneamente. Os resultados são combinados e identificados pela fonte; não existe seletor de API no formulário. FatSecret é ativado no servidor quando `FATSECRET_CLIENT_ID` e `FATSECRET_CLIENT_SECRET` estão configurados na Vercel. A integração usa o OAuth de servidor do Platform API, mantendo as credenciais fora do navegador. A API JavaScript reproduz a consulta de alimentos do repositório e consulta as APIs oficiais no servidor; não executa PHP e não expõe a integração no navegador. A busca possui atraso de 300 ms, cancela consultas antigas e informa falhas de rede. Os pesos e códigos permanecem no SQLite; ao editar, `/api/foods?ids=IBGE:...`, `/api/foods?ids=OFF:...` ou `/api/foods?ids=FATSECRET:...` recupera os alimentos selecionados. `/api/foods` aceita somente GET, valida consulta/códigos e não modifica receitas. Para atualizar os dados IBGE, regenere a base com o importador e publique o projeto.
-
-O formulário também tem leitor de código de barras pela câmera usando `BarcodeDetector` (EAN-8, EAN-13, UPC-A e UPC-E). Em navegadores sem essa API, o mesmo campo aceita digitação manual do código; o valor é consultado simultaneamente no Open Food Facts e no FatSecret.
-
-### Importar exportação do FatSecret
-
-Os exportadores do FatSecret geram dados da conta autorizada, e não uma cópia completa da base pública. Para incorporar alimentos com macros à busca local, salve o CSV exportado e rode:
-
-```sh
-npm run import:fatsecret -- caminho/para/export.csv
-```
-
-O comando grava `public/data/fatsecret-foods-v1.json`. Registros sem calorias, proteína, carboidratos, gordura e peso/volume identificável são ignorados para evitar valores incorretos. Depois, publique novamente o projeto; a base importada será carregada junto com TBCA e ficará disponível mesmo quando o FatSecret estiver bloqueado por IP.
+Os testes deste repositório cobrem o proxy, cálculo nutricional, validações e compatibilidade com bancos antigos. O teste HTTP/PostgreSQL da API migrada fica em `repassafacil-api/tests/Creami.IntegrationTests`.

@@ -5,8 +5,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import initSqlJs from "sql.js"
 import { seedRecipes } from "../src/data/recipes.js"
-import { createFileStorage, ConflictError } from "../server/storage.js"
-import { decodeSqlite } from "../server/sqlite.js"
+import { createFileStorage, ConflictError } from "../scripts/legacy-server/storage.js"
+import { decodeSqlite } from "../scripts/legacy-server/sqlite.js"
 
 const previousState = () => ({
   version: 1,

@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises"
-import { createFoodCatalog, searchFoods } from "../src/lib/nutrition.js"
+import { createFoodCatalog, searchFoods } from "../../src/lib/nutrition.js"
 
 let loading
 const getCatalog = () => {
   if (!loading)
     loading = readFile(
-      new URL("../public/data/ibge-foods-v1.json", import.meta.url),
+      new URL("../../public/data/ibge-foods-v1.json", import.meta.url),
       "utf8",
     )
       .then((text) => createFoodCatalog(JSON.parse(text).foods))

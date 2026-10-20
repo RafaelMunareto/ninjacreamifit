@@ -22,6 +22,7 @@ import {
   searchFoods,
   searchFoodsWithFallback,
 } from "../lib/nutrition.js"
+import { requestApi } from "../lib/http.js"
 import Icon from "./Icon"
 
 type FoodLine = {
@@ -463,18 +464,11 @@ export default function FoodCalculator({
         reader.onerror = () => reject(new Error("Falha ao ler a foto."))
         reader.readAsDataURL(file)
       })
-      const response = await fetch("/api/food-ai", {
+      const result = await requestApi("food-ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image }),
       })
-      const result = await response.json()
-      if (!response.ok)
-        throw new Error(
-          result.detail
-            ? `${result.error || "Não foi possível identificar o alimento."} (${result.detail})`
-            : result.error || "Não foi possível identificar o alimento.",
-        )
       const quantity = Number(result.quantity)
       const rawSuggestions = (
         Array.isArray(result.foods) ? result.foods : [result]

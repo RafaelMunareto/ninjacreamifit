@@ -1,4 +1,5 @@
 // @ts-check
+import { requestApi } from "./http.js"
 /** @typedef {import("../types").LocalFood} LocalFood */
 /** @typedef {import("../types").FoodReference} FoodReference */
 /** @typedef {import("../types").Nutrition} Nutrition */
@@ -16,40 +17,15 @@ const normalize = (value) =>
 /** @type {Promise<FoodCatalog> | undefined} */
 let loading
 
-// The catalog is a versioned local build asset, downloaded only when needed.
+// The shared catalog is served by Repassa Fácil and cached by the browser.
 /** @returns {Promise<FoodCatalog>} */
 export function loadFoodCatalog() {
   if (!loading)
-    loading = Promise.all([
-      fetch(`${import.meta.env.BASE_URL}data/tbca-foods-v1.json`, {
-        cache: "force-cache",
-      }),
-      fetch(`${import.meta.env.BASE_URL}data/fatsecret-foods-v1.json`, {
-        cache: "force-cache",
-      }).catch(() => null),
-    ])
-      .then(async ([response, fatSecretResponse]) => {
-        if (!response.ok)
-          throw new Error("A tabela de alimentos não está disponível.")
-        const data = await response.json()
-        if (
-          data.version !== 1 ||
-          data.source?.basisGrams !== 100 ||
-          !Array.isArray(data.foods) ||
-          !data.foods.length
-        )
+    loading = requestApi("food-catalog", { cache: "force-cache" })
+      .then((data) => {
+        if (data.version !== 1 || data.source?.basisGrams !== 100 || !Array.isArray(data.foods) || !data.foods.length)
           throw new Error("Tabela de alimentos inválida.")
-        let foods = data.foods
-        if (fatSecretResponse?.ok) {
-          try {
-            const imported = await fatSecretResponse.json()
-            if (imported.version === 1 && Array.isArray(imported.foods))
-              foods = [...foods, ...imported.foods]
-          } catch {
-            // An optional import must never prevent the main catalog from loading.
-          }
-        }
-        return createFoodCatalog(foods)
+        return createFoodCatalog(data.foods)
       })
       .catch((error) => {
         loading = undefined
@@ -168,15 +144,7 @@ export async function searchFoodApi(query, limit, signal) {
     [/^\d{8,14}$/.test(query.trim()) ? "barcode" : "q"]: query,
     limit: String(limit),
   })
-  const response = await fetch(
-    `${import.meta.env.BASE_URL}api/foods?${params}`,
-    { signal },
-  )
-  if (!response.ok)
-    throw new Error(
-      "A busca complementar está indisponível. Tente novamente ou preencha manualmente.",
-    )
-  const data = await response.json()
+  const data = await requestApi(`foods?${params}`, { signal })
   if (!Array.isArray(data.foods) || !Number.isInteger(data.total))
     throw new Error("Resposta de alimentos inválida.")
   return /** @type {{foods: LocalFood[], total: number}} */ (data)
@@ -185,13 +153,7 @@ export async function searchFoodApi(query, limit, signal) {
 /** @param {string[]} ids @param {AbortSignal} [signal] @returns {Promise<LocalFood[]>} */
 export async function restoreApiFoods(ids, signal) {
   if (!ids.length) return []
-  const response = await fetch(
-    `${import.meta.env.BASE_URL}api/foods?${new URLSearchParams({ ids: ids.join(",") })}`,
-    { signal },
-  )
-  if (!response.ok)
-    throw new Error("Não foi possível recuperar os alimentos salvos.")
-  const data = await response.json()
+  const data = await requestApi(`foods?${new URLSearchParams({ ids: ids.join(",") })}`, { signal })
   if (!Array.isArray(data.foods))
     throw new Error("Resposta de alimentos inválida.")
   return data.foods
@@ -209,7 +171,7 @@ export async function searchFoodsWithFallback(
     return { foods: [], total: 0, source: "TBCA", fallback: false }
   const local = searchFoods(catalog, query, limit, "TBCA")
   const api = await remote(query, limit).catch(() => ({ foods: [], total: 0 }))
-  const foods = [...local.foods, ...api.foods]
+  const foods = [...new Map([...api.foods, ...local.foods].map((food) => [food.id, food])).values()]
   return {
     foods: foods.slice(0, limit),
     total: foods.length,

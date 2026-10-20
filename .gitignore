@@ -23,3 +23,5 @@ logs/
 /.plugins/
 /.opencode-skills/
 .vercel
+
+!.env.example

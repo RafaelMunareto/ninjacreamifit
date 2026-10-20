@@ -10,7 +10,9 @@
     "test": "node --test tests/*.test.js",
     "typecheck": "tsc --noEmit",
     "format": "oxfmt",
-    "import:fatsecret": "node scripts/import-fatsecret.mjs"
+    "import:fatsecret": "node ../repassafacil-api/Creami/Tools/import-fatsecret.mjs",
+    "export:repassafacil": "node scripts/export-repassafacil.mjs",
+    "dev:api": "dotnet run --project ../repassafacil-api/Repassafacil.API.csproj --launch-profile http"
   },
   "dependencies": {
     "@clerk/backend": "^3.24.0",

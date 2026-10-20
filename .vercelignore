@@ -6,3 +6,6 @@ node_modules
 *.log
 coverage
 tests
+
+scripts/legacy-server
+scripts/export-repassafacil.mjs

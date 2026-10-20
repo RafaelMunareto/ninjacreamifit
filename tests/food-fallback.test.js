@@ -6,7 +6,7 @@ import {
   createFoodCatalog,
   searchFoodsWithFallback,
 } from "../src/lib/nutrition.js"
-import { createFoodHandler } from "../server/foods.js"
+import { createFoodHandler } from "../scripts/legacy-server/foods.js"
 
 const food = {
   id: "C0001C",

@@ -8,11 +8,11 @@ import {
 } from "node:crypto"
 import { createClerkClient, verifyToken } from "@clerk/backend"
 import { promisify } from "node:util"
-import { seedRecipes, categoryColors } from "../src/data/recipes.js"
+import { seedRecipes, categoryColors } from "../../src/data/recipes.js"
 import {
   text as checkText,
   validateRecipe as checkRecipe,
-} from "../src/lib/recipe-utils.js"
+} from "../../src/lib/recipe-utils.js"
 import { ConflictError } from "./storage.js"
 
 const derive = promisify(pbkdf2)

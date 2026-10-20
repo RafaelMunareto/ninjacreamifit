@@ -1,1 +1,2 @@
-export { default } from "../server/foods.js"
+import { createRepassafacilProxy } from "../server/repassafacil-proxy.js"
+export default createRepassafacilProxy("/api/foods")

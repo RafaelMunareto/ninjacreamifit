@@ -5,9 +5,9 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { randomBytes } from "node:crypto"
 import initSqlJs from "sql.js"
-import { createService } from "../server/service.js"
-import { createFileStorage } from "../server/storage.js"
-import { encodeSqlite, decodeSqlite } from "../server/sqlite.js"
+import { createService } from "../scripts/legacy-server/service.js"
+import { createFileStorage } from "../scripts/legacy-server/storage.js"
+import { encodeSqlite, decodeSqlite } from "../scripts/legacy-server/sqlite.js"
 import { seedRecipes } from "../src/data/recipes.js"
 
 test("alimentos e pesos sobrevivem à edição e reinicialização do servidor", async () => {

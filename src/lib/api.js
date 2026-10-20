@@ -1,4 +1,5 @@
 // @ts-check
+import { requestApi } from "./http.js"
 export { filterRecipes, errorMessage } from "./recipe-utils.js"
 /** @typedef {import("../types").Snapshot} Snapshot */
 /** @typedef {import("../types").RecipeInput} RecipeInput */
@@ -37,35 +38,16 @@ export function setSessionTokenProvider(provider) {
 
 /** @param {string} action @param {Record<string, unknown>} [data] @returns {Promise<any>} */
 async function request(action, data = {}) {
-  let response
-  try {
-    const sessionToken = sessionTokenProvider
-      ? await sessionTokenProvider()
-      : null
-    response = await fetch("/api/creami", {
-      method: "POST",
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionToken || deviceToken()}`,
-      },
-      body: JSON.stringify({ action, data }),
-    })
-  } catch {
-    throw new Error(
-      "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente; a receita ainda não foi publicada.",
-    )
-  }
-  if (!response.headers.get("content-type")?.includes("application/json"))
-    throw new Error(
-      "A API do servidor ainda não está publicada. Publique a versão completa do projeto na Vercel.",
-    )
-  const result = await response.json()
-  if (!response.ok)
-    throw new Error(
-      result.error || "Não foi possível salvar no servidor. Tente novamente.",
-    )
+  const sessionToken = sessionTokenProvider ? await sessionTokenProvider() : null
+  const result = await requestApi("creami", {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${sessionToken || deviceToken()}`,
+    },
+    body: JSON.stringify({ action, data }),
+  })
   return result.data
 }
 
