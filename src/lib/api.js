@@ -34,6 +34,8 @@ function deviceToken() {
 /** @param {(() => Promise<string | null>) | null} provider */
 export function setSessionTokenProvider(provider) {
   sessionTokenProvider = provider
+  // A request from the previous account must not become the new account's snapshot.
+  reading = undefined
 }
 
 /** @param {string} action @param {Record<string, unknown>} [data] @returns {Promise<any>} */
@@ -112,12 +114,15 @@ function ready() {
 
 /** @returns {Promise<Snapshot>} */
 export function getSnapshot() {
-  if (!reading)
-    reading = ready()
+  if (!reading) {
+    /** @type {Promise<Snapshot>} */
+    const pending = ready()
       .then(() => request("snapshot"))
       .finally(() => {
-        reading = undefined
+        if (reading === pending) reading = undefined
       })
+    reading = pending
+  }
   return reading
 }
 

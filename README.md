@@ -19,6 +19,8 @@ O catálogo de alimentos vem da API e é guardado no cache do navegador. A busca
 
 O cliente conserva a identificação de aparelho e a migração idempotente do antigo IndexedDB. O backend .NET preserva o mesmo contrato, hashes de autoria e identificação Clerk. A troca de backend não permite editar a receita de outro autor nem recupera uma identificação de aparelho apagada.
 
+O frontend espera o Clerk carregar antes de consultar o perfil e atualiza os dados ao entrar, sair ou trocar de conta. Leituras pendentes da conta anterior não são reutilizadas. O backend valida sessões pelo JWKS público da instância Clerk configurada e autoriza os domínios `www.ninjacreamifit.com.br`, `ninjacreamifit.com.br` e `ninjacreamifit.vercel.app` por padrão. A chave privada Clerk é necessária para consultar o e-mail verificado de administradores, mas não para o login normal.
+
 A documentação de configuração, migração e operação está em [repassafacil-api/docs/ninja-creami.md](../repassafacil-api/docs/ninja-creami.md).
 
 O exportador mantém uma cópia privada do catálogo e das fotos antes da migração:

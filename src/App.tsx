@@ -146,7 +146,7 @@ function RecipeCard({
 }
 
 export default function App() {
-  const { getToken } = useAuth()
+  const { getToken, isLoaded, userId } = useAuth()
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [databaseError, setDatabaseError] = useState("")
@@ -167,12 +167,15 @@ export default function App() {
   useEffect(() => {
     api.setSessionTokenProvider(getToken)
     return () => api.setSessionTokenProvider(null)
-  }, [getToken])
+  }, [getToken, isLoaded, userId])
 
   useEffect(() => {
+    if (!isLoaded) return
     let active = true
     let revision = 0
     setLoading(true)
+    setSnapshot(null)
+    setDatabaseError("")
     const load = async () => {
       const current = ++revision
       try {
@@ -194,7 +197,7 @@ export default function App() {
       active = false
       unsubscribe()
     }
-  }, [reloadKey])
+  }, [isLoaded, userId, reloadKey])
 
   useEffect(() => {
     if (!notice) return
