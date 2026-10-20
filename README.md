@@ -21,6 +21,8 @@ O cliente conserva a identificação de aparelho e a migração idempotente do a
 
 O frontend espera o Clerk carregar antes de consultar o perfil e atualiza os dados ao entrar, sair ou trocar de conta. Leituras pendentes da conta anterior não são reutilizadas. O backend valida sessões pelo JWKS público da instância Clerk configurada e autoriza os domínios `www.ninjacreamifit.com.br`, `ninjacreamifit.com.br` e `ninjacreamifit.vercel.app` por padrão. A chave privada Clerk é necessária para consultar o e-mail verificado de administradores, mas não para o login normal.
 
+A administração usa o mesmo login Clerk do site, sem senha administrativa separada. O backend libera apenas o e-mail primário verificado da lista `CREAMI_ADMIN_EMAILS`. O padrão contém `rafaelmmunareto@gmail.com`, `rafael.munareto@icloud.com` e `vitorsalima@gmail.com`. Em produção, as ações administrativas por senha e os cookies antigos não concedem acesso. Para ativar a verificação por e-mail no Render, configure `CLERK_SECRET_KEY` da mesma instância usada pelo site e salve com novo deploy.
+
 A documentação de configuração, migração e operação está em [repassafacil-api/docs/ninja-creami.md](../repassafacil-api/docs/ninja-creami.md).
 
 O exportador mantém uma cópia privada do catálogo e das fotos antes da migração:

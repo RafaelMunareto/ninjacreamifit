@@ -146,8 +146,8 @@ export default function ProfileModal({
             Administração <Icon name="arrow" size={18} />
           </button>
           <p className="mt-2 text-xs text-[#8a776b]">
-            Acesso com senha para gerenciar todas as receitas e os totais de
-            avaliações.
+            Acesso pela conta de e-mail autorizada para gerenciar todas as
+            receitas e os totais de avaliações.
           </p>
         </div>
       </div>

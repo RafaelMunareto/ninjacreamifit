@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState } from "react"
+import { Show, SignInButton, UserButton } from "@clerk/react"
 import type { AdminDetails, RecipeInput, Snapshot } from "../types"
 import * as api from "../lib/api.js"
 import { categories } from "../data/recipes.js"
@@ -13,7 +14,7 @@ export default function AdminPanel({
   snapshot: Snapshot
   onClose: () => void
 }) {
-  const { configured, authenticated } = snapshot.admin
+  const { authenticated } = snapshot.admin
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
@@ -21,7 +22,6 @@ export default function AdminPanel({
   const [category, setCategory] = useState("Todos")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [changingPassword, setChangingPassword] = useState(false)
   const locked = useRef(false)
   const editing = snapshot.recipes.find((recipe) => recipe.id === editingId)
   const deleting = snapshot.recipes.find((recipe) => recipe.id === deletingId)
@@ -35,7 +35,6 @@ export default function AdminPanel({
     if (!authenticated) {
       setEditingId(null)
       setDeletingId(null)
-      setChangingPassword(false)
     }
   }, [authenticated])
   useEffect(() => {
@@ -58,22 +57,6 @@ export default function AdminPanel({
       setBusy(false)
     }
   }
-  const authenticate = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const form = event.currentTarget
-    const data = new FormData(form)
-    const password = String(data.get("password") || "")
-    if (!configured && password !== data.get("confirmation")) {
-      setError("As senhas não coincidem.")
-      return
-    }
-    void run(async () => {
-      if (configured) await api.loginAdmin(password)
-      else await api.setupAdmin(password)
-      form.reset()
-      setNotice("Acesso de administrador liberado.")
-    })
-  }
   const save = async (
     input: RecipeInput,
     id?: string,
@@ -84,30 +67,6 @@ export default function AdminPanel({
     setEditingId(null)
     setNotice("Receita, macros e avaliações atualizados!")
   }
-  const changePassword = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const form = event.currentTarget
-    const data = new FormData(form)
-    const password = String(data.get("new_password") || "")
-    if (password !== data.get("confirmation")) {
-      setError("As senhas não coincidem.")
-      return
-    }
-    void run(async () => {
-      await api.changeAdminPassword(
-        String(data.get("current_password") || ""),
-        password,
-      )
-      form.reset()
-      setChangingPassword(false)
-      setNotice("Senha de administrador alterada.")
-    })
-  }
-  const exit = () =>
-    void run(async () => {
-      await api.logoutAdmin()
-      onClose()
-    })
 
   return (
     <main className="min-h-screen bg-[#fffaf3] text-[#342820]">
@@ -122,24 +81,15 @@ export default function AdminPanel({
             </h1>
           </div>
           <div className="flex flex-wrap gap-3">
-            {authenticated && (
-              <button
-                disabled={busy}
-                onClick={() => {
-                  setChangingPassword(true)
-                  setError("")
-                }}
-                className="rounded-full border border-[#e7d9ce] px-4 py-2 text-sm font-bold"
-              >
-                Alterar senha
-              </button>
-            )}
+            <Show when="signed-in">
+              <UserButton />
+            </Show>
             <button
               disabled={busy}
-              onClick={exit}
+              onClick={onClose}
               className="rounded-full bg-[#342820] px-5 py-2.5 text-sm font-bold text-white"
             >
-              {authenticated ? "Sair e voltar ao site" : "Voltar ao site"}
+              Voltar ao site
             </button>
           </div>
         </div>
@@ -151,61 +101,29 @@ export default function AdminPanel({
               <Icon name="user" size={26} />
             </span>
             <h2 className="mt-5 font-display text-3xl font-black">
-              {configured
-                ? "Acesso do administrador"
-                : "Crie a senha de administrador"}
+              Acesso restrito
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-[#78665b]">
-              {configured
-                ? "Entre com sua senha para gerenciar todas as receitas, macros, estrelas e avaliações."
-                : "Este é o primeiro acesso ao servidor de desenvolvimento. Defina uma senha de 10 a 128 caracteres para liberar as alterações do catálogo."}
+              A administração é liberada pela conta de e-mail autorizada. Entre
+              com essa conta para gerenciar receitas e avaliações.
             </p>
-            <form
-              key={configured ? "login" : "setup"}
-              onSubmit={authenticate}
-              className="mt-6 space-y-4"
-              aria-busy={busy}
-            >
-              <PasswordField
-                label={configured ? "Senha de administrador" : "Criar senha"}
-                name="password"
-                autoComplete={configured ? "current-password" : "new-password"}
-                minLength={configured ? 1 : 10}
-                disabled={busy}
-              />
-              {!configured && (
-                <PasswordField
-                  label="Confirmar senha"
-                  name="confirmation"
-                  autoComplete="new-password"
-                  minLength={10}
-                  disabled={busy}
-                />
-              )}
-              {error && (
-                <p
-                  role="alert"
-                  className="rounded-2xl bg-[#fff0f4] p-3 text-sm font-bold text-[#b92e53]"
-                >
-                  {error}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={busy}
-                className="w-full rounded-full bg-[#ef4f78] px-6 py-3.5 text-sm font-extrabold text-white"
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button className="mt-6 w-full rounded-full bg-[#ef4f78] px-6 py-3.5 text-sm font-extrabold text-white">
+                  Entrar com minha conta
+                </button>
+              </SignInButton>
+            </Show>
+            <Show when="signed-in">
+              <p
+                role="status"
+                className="mt-5 text-sm leading-relaxed text-[#78665b]"
               >
-                {busy
-                  ? "Verificando…"
-                  : configured
-                    ? "Entrar na administração"
-                    : "Criar senha e entrar"}
-              </button>
-            </form>
-            <p className="mt-5 text-xs leading-relaxed text-[#8a776b]">
-              A senha protege a administração do site. Use Sair para encerrar
-              seu acesso. Guarde sua senha: não há recuperação por e-mail.
-            </p>
+                O acesso de administrador não está liberado para a conta
+                conectada. Use o menu da sua conta, no topo, para sair e entrar
+                com outra conta.
+              </p>
+            </Show>
           </section>
         ) : (
           <>
@@ -263,7 +181,7 @@ export default function AdminPanel({
                 </select>
               </label>
             </div>
-            {error && !deleting && !changingPassword && (
+            {error && !deleting && (
               <p
                 role="alert"
                 className="mt-5 rounded-2xl bg-[#fff0f4] p-4 text-sm font-bold text-[#b92e53]"
@@ -396,68 +314,6 @@ export default function AdminPanel({
           </div>
         </Modal>
       )}
-      {authenticated && changingPassword && (
-        <Modal
-          titleId="change-password-title"
-          onClose={() => {
-            if (!busy) setChangingPassword(false)
-          }}
-        >
-          <div className="p-6 sm:p-9">
-            <h2
-              id="change-password-title"
-              className="font-display text-2xl font-black"
-            >
-              Alterar senha de administrador
-            </h2>
-            <form onSubmit={changePassword} className="mt-6 space-y-4">
-              <PasswordField
-                label="Senha atual"
-                name="current_password"
-                autoComplete="current-password"
-                minLength={1}
-                disabled={busy}
-              />
-              <PasswordField
-                label="Nova senha"
-                name="new_password"
-                autoComplete="new-password"
-                minLength={10}
-                disabled={busy}
-              />
-              <PasswordField
-                label="Confirmar nova senha"
-                name="confirmation"
-                autoComplete="new-password"
-                minLength={10}
-                disabled={busy}
-              />
-              {error && (
-                <p role="alert" className="text-sm font-bold text-[#b92e53]">
-                  {error}
-                </p>
-              )}
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="rounded-full bg-[#342820] px-6 py-3 text-sm font-bold text-white"
-                >
-                  {busy ? "Salvando…" : "Salvar nova senha"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setChangingPassword(false)}
-                  className="rounded-full border border-[#e7d9ce] px-6 py-3 text-sm font-bold"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        </Modal>
-      )}
       {notice && (
         <div
           role="status"
@@ -470,36 +326,6 @@ export default function AdminPanel({
         </div>
       )}
     </main>
-  )
-}
-
-function PasswordField({
-  label,
-  name,
-  autoComplete,
-  minLength,
-  disabled,
-}: {
-  label: string
-  name: string
-  autoComplete: string
-  minLength: number
-  disabled: boolean
-}) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-extrabold">{label}</span>
-      <input
-        name={name}
-        type="password"
-        required
-        minLength={minLength}
-        maxLength={128}
-        autoComplete={autoComplete}
-        disabled={disabled}
-        className="form-input"
-      />
-    </label>
   )
 }
 
