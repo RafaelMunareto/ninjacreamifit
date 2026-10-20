@@ -328,8 +328,8 @@ export default function FoodCalculator({
     const quantity = suggestion?.quantity ?? 100
     const unit = suggestion?.unit ?? "g"
     publish([
-      ...items,
       { key: crypto.randomUUID(), food, grams: String(quantity), unit },
+      ...items,
     ])
     if (suggestion)
       setAiSuggestions((current) =>
