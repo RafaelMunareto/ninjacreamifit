@@ -43,6 +43,48 @@ test("código colado com separadores usa a consulta por barras e preserva zeros 
   }
 })
 
+test("alimento remoto com nome aproximado sobrevive à mescla e à paginação", async () => {
+  const original = globalThis.fetch
+  const pineapple = {
+    ...food("FATSECRET:pineapple", 100),
+    name: "Pineapple Whey",
+  }
+  try {
+    globalThis.fetch = async () =>
+      Response.json({
+        foods: [
+          pineapple,
+          { ...pineapple, id: "OFF:juice", name: "Pineapple Juice" },
+        ],
+        nextCursor: "10,-1",
+      })
+    const first = await searchFoodPage(createFoodCatalog([]), "pineaple whey")
+    assert.deepEqual(
+      first.foods.map((food) => food.id),
+      [pineapple.id],
+    )
+    globalThis.fetch = async () =>
+      Response.json({
+        foods: [{ ...pineapple, id: "OFF:2", calories: 80 }],
+        nextCursor: null,
+      })
+    const next = await searchFoodPage(
+      createFoodCatalog([]),
+      "pineaple whey",
+      first.nextCursor,
+      undefined,
+      first.foods,
+    )
+    assert.deepEqual(
+      next.foods.map((food) => food.id),
+      ["OFF:2", pineapple.id],
+    )
+    assert.equal(next.nextCursor, null)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
 test("mais páginas preservam fontes, retiram duplicatas e reordenam calorias sem perder o cursor", async () => {
   const original = globalThis.fetch
   try {

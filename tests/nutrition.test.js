@@ -6,6 +6,7 @@ import {
   createFoodCatalog,
   hasCompleteNutrition,
   searchFoods,
+  matchesFoodQuery,
 } from "../src/lib/nutrition.js"
 import { convertFood, parseNutrient } from "../scripts/import-tbca.mjs"
 
@@ -68,6 +69,68 @@ test("busca local aceita acentos, múltiplas palavras e código TBCA", () => {
   assert.equal(searchFoods(catalog, "A0105N").foods[0].id, apple.id)
   assert.equal(searchFoods(catalog, "inexistente").total, 0)
   assert.equal(searchFoods(catalog, "a").total, 0)
+})
+
+test("busca tolera uma letra errada por palavra e mantém todas as palavras obrigatórias", () => {
+  const pineapple = {
+    ...milk,
+    id: "CUSTOM:pineapple",
+    name: "PINEAPPLE WHEY ESSENTIAL NUTRITION",
+    source: "Manual",
+  }
+  const catalog = createFoodCatalog([
+    pineapple,
+    { ...banana, id: "OFF:1", name: "Pineapple Juice" },
+    { ...milk, id: "OFF:2", name: "Banana Whey" },
+  ])
+  for (const query of [
+    "pineaple whey",
+    "pineaapple whey",
+    "pineappke whey",
+    "pineappel whey",
+    "pineapple whei",
+  ]) {
+    assert.deepEqual(
+      searchFoods(catalog, query).foods.map((food) => food.id),
+      [pineapple.id],
+      query,
+    )
+    assert.equal(matchesFoodQuery(pineapple, query), true)
+  }
+  for (const query of ["pinaple whey", "pineaple banana", "pineaple zero"])
+    assert.equal(searchFoods(catalog, query).total, 0, query)
+  assert.equal(
+    matchesFoodQuery(
+      { ...milk, name: "Iogurte Vero", category: "iogurte zero" },
+      "iogurte zero",
+    ),
+    false,
+  )
+  assert.equal(
+    matchesFoodQuery(
+      { ...milk, name: "Pineapple Whey 80" },
+      "pineaple whey 90",
+    ),
+    false,
+  )
+  assert.equal(searchFoods(createFoodCatalog([milk]), "C0002G").total, 0)
+})
+
+test("nomes exatos ficam antes dos aproximados, com calorias crescentes no mesmo grupo", () => {
+  const make = (id, name, calories) => ({ ...milk, id, name, calories })
+  const catalog = createFoodCatalog([
+    make("FATSECRET:1", "Pineapple Whey", 300),
+    make("FATSECRET:2", "Pineaple Whey", 400),
+    make("FATSECRET:3", "Pineapple Whey Essencial", 200),
+  ])
+  assert.deepEqual(
+    searchFoods(catalog, "pineaple whey").foods.map((food) => food.id),
+    ["FATSECRET:2", "FATSECRET:3", "FATSECRET:1"],
+  )
+  assert.deepEqual(
+    searchFoods(catalog, "pineapple whey").foods.map((food) => food.id),
+    ["FATSECRET:3", "FATSECRET:1", "FATSECRET:2"],
+  )
 })
 
 test("leite condensado aparece antes das preparações, com calorias crescentes entre os produtos", async () => {

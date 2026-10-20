@@ -46,6 +46,8 @@ A busca de alimentos carrega as fontes externas em páginas com cursor e mantém
 
 Os resultados do catálogo já carregado aparecem imediatamente, enquanto a busca externa acontece em segundo plano. É possível selecionar um alimento da TBCA/IBGE e calcular os macros antes da resposta do FatSecret ou do Open Food Facts. Falhas e atrasos dessas fontes não ocultam os alimentos locais.
 
+A busca tolera uma letra ausente, extra, diferente ou invertida em palavras com quatro ou mais letras, como “pineaple whey” para “Pineapple Whey”. Todas as palavras continuam obrigatórias; nomes exatos têm prioridade, com calorias crescentes dentro do mesmo nível de correspondência. Qualificadores como “zero”, números e códigos permanecem exatos. Para consultar os provedores, a API corrige termos desconhecidos quando há uma única alternativa próxima entre os nomes da base local e compartilhada, sem multiplicar as chamadas externas.
+
 A lista exibe todos os alimentos já carregados e busca as próximas páginas automaticamente ao rolar até perto do fim, sem botão de “mostrar mais”. A contagem informa quantos alimentos foram carregados, sem apresentar esse número como total da base. Uma falha pausa a paginação automática e permite tentar novamente; trocar o termo cancela a busca anterior e volta ao início da lista.
 
 Alimentos manuais são salvos no PostgreSQL compartilhado pelo Repassa Fácil, mesmo sem publicar uma receita. Um código de barras não encontrado abre o cadastro com o código preenchido. O salvamento é idempotente; cadastros concorrentes do mesmo código reutilizam o alimento existente. Os valores são informados por 100 g/ml. Falhas preservam o formulário. As próximas buscas consultam também os alimentos da comunidade.

@@ -92,17 +92,22 @@ function orderFoodResults(foods, query) {
       // Token matching also recognizes "Leite, vaca, condensado" and queries
       // with reordered words, without changing which foods match the search.
       const mainName = normalize(food.name.split(/\(|\bc\s*\//i)[0])
-      const relevance = words.includes(name.split(" ")[0])
+      const firstWord = name.split(" ")[0]
+      const relevance = words.some(
+        (word) => word === firstWord || similarWord(word, firstWord),
+      )
         ? 0
-        : words.every((word) => mainName.includes(word))
+        : Number.isFinite(nameMatchCost(mainName, words))
           ? 1
           : 2
-      return { food, relevance }
+      const cost = nameMatchCost(name, words)
+      return { food, relevance, cost: Number.isFinite(cost) ? cost : 0 }
     })
     .sort(
       (a, b) =>
         Number(!hasCompleteNutrition(a.food)) -
           Number(!hasCompleteNutrition(b.food)) ||
+        a.cost - b.cost ||
         a.relevance - b.relevance ||
         compareFoodCalories(a.food, b.food) ||
         a.food.name.localeCompare(b.food.name, "pt-BR") ||
@@ -111,11 +116,84 @@ function orderFoodResults(foods, query) {
     .map(({ food }) => food)
 }
 
+// Keep nutritional qualifiers and identifiers exact. A typo in another word
+// must not turn "iogurte zero" into an unrelated or non-zero product.
+const exactTerms = new Set([
+  "zero",
+  "sem",
+  "com",
+  "light",
+  "diet",
+  "integral",
+  "desnatado",
+  "lactose",
+  "gluten",
+])
+
+/** @param {string} word */
+const allowsTypo = (word) => /^[a-z]{4,}$/.test(word) && !exactTerms.has(word)
+
+/** @param {string} word @param {string} candidate */
+function similarWord(word, candidate) {
+  if (
+    Math.abs(word.length - candidate.length) > 1 ||
+    !allowsTypo(word) ||
+    !/^[a-z]{4,}$/.test(candidate)
+  )
+    return false
+  if (word.length === candidate.length) {
+    let first = -1
+    for (let i = 0; i < word.length; i++) {
+      if (word[i] === candidate[i]) continue
+      if (first < 0) first = i
+      else
+        return (
+          i === first + 1 &&
+          word[first] === candidate[i] &&
+          word[i] === candidate[first] &&
+          word.slice(i + 1) === candidate.slice(i + 1)
+        )
+    }
+    return true
+  }
+  const shorter = word.length < candidate.length ? word : candidate
+  const longer = word.length < candidate.length ? candidate : word
+  let i = 0,
+    j = 0,
+    skipped = false
+  while (i < shorter.length && j < longer.length) {
+    if (shorter[i] === longer[j]) {
+      i++
+      j++
+    } else {
+      if (skipped) return false
+      skipped = true
+      j++
+    }
+  }
+  return true
+}
+
+/** @param {string} name @param {string[]} words */
+function nameMatchCost(name, words) {
+  let cost = 0
+  let tokens
+  for (const word of words) {
+    if (name.includes(word)) continue
+    if (!allowsTypo(word)) return Infinity
+    tokens ??= name.split(" ")
+    if (!tokens.some((candidate) => similarWord(word, candidate)))
+      return Infinity
+    cost++
+  }
+  return cost
+}
+
 /** @param {string} name @param {string} identifier @param {string[]} words */
 function matchesTerms(name, identifier, words) {
   return (
     words.length > 0 &&
-    (words.every((word) => name.includes(word)) ||
+    (Number.isFinite(nameMatchCost(name, words)) ||
       (words.some((word) => /\d/.test(word)) &&
         words.every((word) => identifier.includes(word))))
   )
