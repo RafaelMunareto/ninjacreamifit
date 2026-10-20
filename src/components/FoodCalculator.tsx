@@ -180,8 +180,14 @@ export default function FoodCalculator({
     setLimit(20)
     let active = true
     setSearchError("")
-    setResults({ foods: [], total: 0, source: "TBCA", fallback: false })
     const valid = deferredQuery.trim().length >= 2
+    // Foods already in the catalog must be selectable while providers load.
+    // A slow or unavailable external source cannot hide TBCA/IBGE matches.
+    const local =
+      valid && !/^\d{8,14}$/.test(deferredQuery.trim())
+        ? searchFoods(catalog, deferredQuery, Number.MAX_SAFE_INTEGER)
+        : { foods: [], total: 0 }
+    setResults({ ...local, source: "Todas", fallback: false, nextCursor: null })
     setSearching(valid)
     const timer = window.setTimeout(
       () => {
@@ -945,7 +951,9 @@ export default function FoodCalculator({
           {query.trim().length >= 2 && !searchError && (
             <p role="status" className="mt-3 text-xs text-muted">
               {searching
-                ? "Buscando alimento…"
+                ? results.total
+                  ? `${Math.min(limit, results.total).toLocaleString("pt-BR")} alimentos encontrados · buscando mais opções…`
+                  : "Buscando alimento…"
                 : results.total
                   ? `${Math.min(limit, results.total).toLocaleString("pt-BR")} de ${results.total.toLocaleString("pt-BR")} alimentos carregados${
                       results.nextCursor ? " · há mais resultados" : ""
