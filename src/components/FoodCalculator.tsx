@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useDeferredValue,
   useEffect,
   useRef,
@@ -77,7 +78,6 @@ export default function FoodCalculator({
   const source = "all"
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)
-  const [limit, setLimit] = useState(20)
   const [results, setResults] =
     useState<Awaited<ReturnType<typeof searchFoodsWithFallback>>>({
       foods: [],
@@ -113,6 +113,8 @@ export default function FoodCalculator({
   const manualFoodId = useRef(`CUSTOM:${crypto.randomUUID()}`)
   const moreRequest = useRef<AbortController | null>(null)
   const queryVersion = useRef(0)
+  const resultsScrollRef = useRef<HTMLDivElement | null>(null)
+  const resultsEndRef = useRef<HTMLDivElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const aiPhotoRef = useRef<HTMLInputElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -176,8 +178,9 @@ export default function FoodCalculator({
     if (!catalog) return
     const controller = new AbortController()
     moreRequest.current?.abort()
+    moreRequest.current = null
     ++queryVersion.current
-    setLimit(20)
+    resultsScrollRef.current?.scrollTo({ top: 0 })
     let active = true
     setSearchError("")
     const valid = deferredQuery.trim().length >= 2
@@ -223,10 +226,15 @@ export default function FoodCalculator({
     }
   }, [catalog, deferredQuery])
 
-  const loadMore = async (expand = true) => {
-    if (!catalog || searching || moreRequest.current) return
-    if (expand) setLimit((value) => value + 20)
-    if (!results.nextCursor) return
+  const loadMore = useCallback(async () => {
+    if (
+      !catalog ||
+      searching ||
+      moreRequest.current ||
+      !results.nextCursor ||
+      query !== deferredQuery
+    )
+      return
     const version = queryVersion.current
     const controller = new AbortController()
     moreRequest.current = controller
@@ -240,7 +248,13 @@ export default function FoodCalculator({
         controller.signal,
         results.foods,
       )
-      if (version === queryVersion.current) setResults(data)
+      if (version === queryVersion.current) {
+        setResults(data)
+        if (data.nextCursor === results.nextCursor)
+          setSearchError(
+            "A busca não avançou. Tente novamente para carregar mais alimentos.",
+          )
+      }
     } catch (cause) {
       if (
         version === queryVersion.current &&
@@ -251,7 +265,47 @@ export default function FoodCalculator({
       if (moreRequest.current === controller) moreRequest.current = null
       if (version === queryVersion.current) setSearching(false)
     }
-  }
+  }, [catalog, searching, results, query, deferredQuery])
+
+  const partialResults = Object.values(results.sourceDiagnostics || {}).some(
+    (status) => status !== "ok",
+  )
+
+  useEffect(() => {
+    const root = resultsScrollRef.current
+    const target = resultsEndRef.current
+    if (
+      !root ||
+      !target ||
+      !results.nextCursor ||
+      searching ||
+      searchError ||
+      partialResults ||
+      query !== deferredQuery
+    )
+      return
+    let active = true
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (active && entries.some((entry) => entry.isIntersecting))
+          void loadMore()
+      },
+      { root, rootMargin: "0px 0px 120px 0px" },
+    )
+    observer.observe(target)
+    return () => {
+      active = false
+      observer.disconnect()
+    }
+  }, [
+    loadMore,
+    results.nextCursor,
+    searching,
+    searchError,
+    partialResults,
+    query,
+    deferredQuery,
+  ])
   const publish = (updated: FoodLine[]) => {
     setItems(updated)
     onChange(
@@ -484,7 +538,6 @@ export default function FoodCalculator({
         current.filter((item) => item.food !== suggestion.food),
       )
     setQuery("")
-    setLimit(20)
   }
 
   const scanBarcode = async () => {
@@ -757,10 +810,7 @@ export default function FoodCalculator({
               <input
                 ref={searchInputRef}
                 value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value)
-                  setLimit(20)
-                }}
+                onChange={(event) => setQuery(event.target.value)}
                 maxLength={100}
                 placeholder="Ex: banana, leite desnatado, cacau…"
                 className="min-w-0 flex-1 bg-transparent py-3.5 text-sm outline-none"
@@ -950,22 +1000,24 @@ export default function FoodCalculator({
           )}
           {query.trim().length >= 2 && !searchError && (
             <p role="status" className="mt-3 text-xs text-muted">
-              {searching
-                ? results.total
-                  ? `${Math.min(limit, results.total).toLocaleString("pt-BR")} alimentos encontrados · buscando mais opções…`
-                  : "Buscando alimento…"
-                : results.total
-                  ? `${Math.min(limit, results.total).toLocaleString("pt-BR")} de ${results.total.toLocaleString("pt-BR")} alimentos carregados${
-                      results.nextCursor ? " · há mais resultados" : ""
-                    }`
-                  : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
+              {results.foods.length
+                ? `${results.foods.length.toLocaleString("pt-BR")} alimentos carregados${
+                    searching
+                      ? " · buscando mais opções…"
+                      : results.nextCursor
+                        ? " · role a lista para carregar mais"
+                        : ""
+                  }`
+                : searching
+                  ? "Buscando alimento…"
+                  : results.nextCursor
+                    ? "A busca ainda tem páginas para consultar."
+                    : "Nenhum alimento encontrado. Tente outro nome ou use o preenchimento manual abaixo."}
             </p>
           )}
           {!searching &&
             results.nextCursor &&
-            Object.values(results.sourceDiagnostics || {}).some(
-              (status) => status !== "ok",
-            ) && (
+            (partialResults || searchError) && (
               <div className="mt-3 rounded-2xl border border-outline bg-yellow-soft p-3 text-sm text-[#52642f]">
                 <p role="status">
                   Algumas bases de alimentos estão temporariamente
@@ -973,7 +1025,7 @@ export default function FoodCalculator({
                 </p>
                 <button
                   type="button"
-                  onClick={() => void loadMore(false)}
+                  onClick={() => void loadMore()}
                   className="mt-2 rounded-full border border-current px-4 py-2 text-xs font-extrabold"
                 >
                   Tentar busca novamente
@@ -1134,46 +1186,63 @@ export default function FoodCalculator({
             </div>
           )}
           <div className="flex flex-col">
-            {!!results.foods.length && (
-              <ul
-                aria-label="Resultados de alimentos"
+            {(!!results.foods.length || !!results.nextCursor) && (
+              <div
+                ref={resultsScrollRef}
+                role="region"
+                aria-label="Lista de alimentos com rolagem"
+                tabIndex={0}
                 className="order-2 mt-3 max-h-80 space-y-2 overflow-y-auto overscroll-contain"
               >
-                {results.foods.slice(0, limit).map((food) => {
-                  const complete = hasCompleteNutrition(food)
-                  return (
-                    <li key={food.id}>
-                      <button
-                        type="button"
-                        disabled={!complete || items.length >= 50}
-                        onClick={() => add(food)}
-                        aria-label={`Adicionar ${food.name} · ${food.source || "TBCA"}`}
-                        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-outline p-3 text-left transition hover:border-[#ef4f78] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <span className="min-w-0">
-                          <strong className="block break-words text-sm">
-                            {food.name}
-                          </strong>
-                          <span className="mt-1 block text-xs text-muted">
-                            {complete
-                              ? `${
-                                  food.source === "Manual"
-                                    ? "Base da comunidade"
-                                    : food.source || "TBCA"
-                                } · Por 100 ${food.basisUnit || "g"}: ${display(food.calories)} kcal · P ${display(food.protein)} g · C ${display(food.carbs)} g · G ${display(food.fat)} g`
-                              : "Dados incompletos na base · preencha manualmente"}
+                <ul aria-label="Resultados de alimentos" className="space-y-2">
+                  {results.foods.map((food) => {
+                    const complete = hasCompleteNutrition(food)
+                    return (
+                      <li key={food.id}>
+                        <button
+                          type="button"
+                          disabled={!complete || items.length >= 50}
+                          onClick={() => add(food)}
+                          aria-label={`Adicionar ${food.name} · ${food.source || "TBCA"}`}
+                          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-outline p-3 text-left transition hover:border-[#ef4f78] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <span className="min-w-0">
+                            <strong className="block break-words text-sm">
+                              {food.name}
+                            </strong>
+                            <span className="mt-1 block text-xs text-muted">
+                              {complete
+                                ? `${
+                                    food.source === "Manual"
+                                      ? "Base da comunidade"
+                                      : food.source || "TBCA"
+                                  } · Por 100 ${food.basisUnit || "g"}: ${display(food.calories)} kcal · P ${display(food.protein)} g · C ${display(food.carbs)} g · G ${display(food.fat)} g`
+                                : "Dados incompletos na base · preencha manualmente"}
+                            </span>
                           </span>
-                        </span>
-                        {complete && (
-                          <span className="shrink-0 text-[#ef4f78]">
-                            <Icon name="plus" />
-                          </span>
-                        )}
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
+                          {complete && (
+                            <span className="shrink-0 text-[#ef4f78]">
+                              <Icon name="plus" />
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+                {results.nextCursor && (
+                  <div
+                    ref={resultsEndRef}
+                    className="min-h-8 p-2 text-center text-xs text-muted"
+                  >
+                    {searching ? (
+                      <span role="status">Carregando mais alimentos…</span>
+                    ) : !partialResults && !searchError ? (
+                      "Role para carregar mais alimentos"
+                    ) : null}
+                  </div>
+                )}
+              </div>
             )}
             {!!aiSuggestions.length && (
               <div className="order-1 mt-4 rounded-2xl border border-[#cfc0f5] bg-purple-soft p-4">
@@ -1279,16 +1348,6 @@ export default function FoodCalculator({
               </div>
             )}
           </div>
-          {(results.total > limit || results.nextCursor) && (
-            <button
-              type="button"
-              onClick={() => void loadMore()}
-              disabled={searching}
-              className="mt-3 rounded-full border border-outline px-4 py-2 text-xs font-bold"
-            >
-              {searching ? "Carregando mais…" : "Mostrar mais alimentos"}
-            </button>
-          )}
           {!!items.length && (
             <ul aria-label="Alimentos do pote" className="mt-5 space-y-3">
               {items.map((item, index) => {

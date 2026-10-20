@@ -44,6 +44,8 @@ A busca de alimentos carrega as fontes externas em páginas com cursor e mantém
 
 Os resultados do catálogo já carregado aparecem imediatamente, enquanto a busca externa acontece em segundo plano. É possível selecionar um alimento da TBCA/IBGE e calcular os macros antes da resposta do FatSecret ou do Open Food Facts. Falhas e atrasos dessas fontes não ocultam os alimentos locais.
 
+A lista exibe todos os alimentos já carregados e busca as próximas páginas automaticamente ao rolar até perto do fim, sem botão de “mostrar mais”. A contagem informa quantos alimentos foram carregados, sem apresentar esse número como total da base. Uma falha pausa a paginação automática e permite tentar novamente; trocar o termo cancela a busca anterior e volta ao início da lista.
+
 Alimentos manuais são salvos no PostgreSQL compartilhado pelo Repassa Fácil, mesmo sem publicar uma receita. Um código de barras não encontrado abre o cadastro com o código preenchido. O salvamento é idempotente; cadastros concorrentes do mesmo código reutilizam o alimento existente. Os valores são informados por 100 g/ml. Falhas preservam o formulário. As próximas buscas consultam também os alimentos da comunidade.
 
 O tema padrão acompanha o sistema do aparelho. Em **Meu perfil → Aparência**, é possível escolher **Automático**, **Claro** ou **Escuro**. A preferência é aplicada imediatamente, guardada neste navegador e sincronizada entre suas abas. A paleta é aplicada antes da montagem do React para evitar um fundo claro ao abrir no modo escuro.
